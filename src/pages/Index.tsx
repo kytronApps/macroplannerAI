@@ -14,13 +14,18 @@ const Index = () => {
   const [fats, setFats] = useState("");
   const [carbs, setCarbs] = useState("");
   const [proteins, setProteins] = useState("");
-  const [selectedMeals, setSelectedMeals] = useState<string[]>(["Desayuno", "Comida", "Cena"]);
+  const [selectedMeals, setSelectedMeals] = useState<string[]>([
+    "Desayuno",
+    "Comida",
+    "Cena",
+  ]);
   const [includeDessert, setIncludeDessert] = useState(false);
   const [allergies, setAllergies] = useState("");
   const [preferences, setPreferences] = useState("");
   const [intolerances, setIntolerances] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [mealPlan, setMealPlan] = useState(null);
+  const [menuCount, setMenuCount] = useState(1);
   const { toast } = useToast();
 
   const handleMealToggle = (meal: string) => {
@@ -52,19 +57,22 @@ const Index = () => {
     setMealPlan(null);
 
     try {
-      const { data, error } = await supabase.functions.invoke("generate-meal-plan", {
-        body: {
-          calories: parseFloat(calories),
-          fats: parseFloat(fats),
-          carbs: parseFloat(carbs),
-          proteins: parseFloat(proteins),
-          meals: selectedMeals,
-          includeDessert,
-          allergies,
-          preferences,
-          intolerances,
-        },
-      });
+      const { data, error } = await supabase.functions.invoke(
+        "generate-meal-plan",
+        {
+          body: {
+            calories: parseFloat(calories),
+            fats: parseFloat(fats),
+            carbs: parseFloat(carbs),
+            proteins: parseFloat(proteins),
+            meals: selectedMeals,
+            includeDessert,
+            allergies,
+            preferences,
+            intolerances,
+          },
+        }
+      );
 
       if (error) {
         console.error("Error generating meal plan:", error);
@@ -80,7 +88,8 @@ const Index = () => {
       console.error("Error:", error);
       toast({
         title: "Error",
-        description: "No se pudo generar el plan de comidas. Inténtalo de nuevo.",
+        description:
+          "No se pudo generar el plan de comidas. Inténtalo de nuevo.",
         variant: "destructive",
       });
     } finally {
@@ -99,8 +108,8 @@ const Index = () => {
             </h1>
           </div>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Genera planes de comidas personalizados basados en tus necesidades nutricionales
-            con el poder de la inteligencia artificial
+            Genera planes de comidas personalizados basados en tus necesidades
+            nutricionales con el poder de la inteligencia artificial
           </p>
         </div>
 
@@ -124,7 +133,7 @@ const Index = () => {
               onCarbsChange={setCarbs}
               onProteinsChange={setProteins}
             />
-            
+
             {calories && fats && carbs && proteins && (
               <div className="mt-6">
                 <ExchangeCalculator
@@ -148,8 +157,10 @@ const Index = () => {
             <MealSelector
               selectedMeals={selectedMeals}
               includeDessert={includeDessert}
+              menuCount={menuCount} // <-- AÑADIDO
               onMealToggle={handleMealToggle}
               onDessertToggle={setIncludeDessert}
+              onMenuCountChange={setMenuCount} // <-- AÑADIDO
             />
           </Card>
 
