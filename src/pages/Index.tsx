@@ -57,10 +57,12 @@ const Index = () => {
     setMealPlan(null);
 
     try {
-      const { data, error } = await supabase.functions.invoke(
-        "generate-meal-plan",
+      const response = await fetch(
+        "https://nutriplan-worker.kytronapps.workers.dev",
         {
-          body: {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
             calories: parseFloat(calories),
             fats: parseFloat(fats),
             carbs: parseFloat(carbs),
@@ -70,22 +72,24 @@ const Index = () => {
             allergies,
             preferences,
             intolerances,
-          },
+            menuCount,
+          }),
         }
       );
 
-      if (error) {
-        console.error("Error generating meal plan:", error);
-        throw error;
+      if (!response.ok) {
+        throw new Error(`Error HTTP: ${response.status}`);
       }
 
+      const data = await response.json();
       setMealPlan(data);
+
       toast({
         title: "¡Plan generado!",
         description: "Tu plan de comidas personalizado está listo",
       });
-    } catch (error) {
-      console.error("Error:", error);
+    } catch (err) {
+      console.error("Error:", err);
       toast({
         title: "Error",
         description:
@@ -114,6 +118,7 @@ const Index = () => {
         </div>
 
         <div className="grid gap-8">
+          {/* --- SECCIÓN 1 --- */}
           <Card className="p-6 md:p-8 border-2 shadow-lg">
             <div className="flex items-center gap-2 mb-6">
               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
@@ -123,6 +128,7 @@ const Index = () => {
                 Valores Nutricionales
               </h2>
             </div>
+
             <NutritionalInput
               calories={calories}
               fats={fats}
@@ -145,6 +151,7 @@ const Index = () => {
             )}
           </Card>
 
+          {/* --- SECCIÓN 2 --- */}
           <Card className="p-6 md:p-8 border-2 shadow-lg">
             <div className="flex items-center gap-2 mb-6">
               <div className="w-8 h-8 rounded-full bg-secondary/10 flex items-center justify-center">
@@ -154,16 +161,18 @@ const Index = () => {
                 Comidas del Día
               </h2>
             </div>
+
             <MealSelector
               selectedMeals={selectedMeals}
               includeDessert={includeDessert}
-              menuCount={menuCount} // <-- AÑADIDO
+              menuCount={menuCount}
               onMealToggle={handleMealToggle}
               onDessertToggle={setIncludeDessert}
-              onMenuCountChange={setMenuCount} // <-- AÑADIDO
+              onMenuCountChange={setMenuCount}
             />
           </Card>
 
+          {/* --- SECCIÓN 3 --- */}
           <Card className="p-6 md:p-8 border-2 shadow-lg">
             <div className="flex items-center gap-2 mb-6">
               <div className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center">
@@ -173,6 +182,7 @@ const Index = () => {
                 Preferencias y Restricciones
               </h2>
             </div>
+
             <PreferencesForm
               allergies={allergies}
               preferences={preferences}
@@ -183,6 +193,7 @@ const Index = () => {
             />
           </Card>
 
+          {/* BOTÓN */}
           <div className="flex justify-center">
             <Button
               onClick={handleGenerateMealPlan}
