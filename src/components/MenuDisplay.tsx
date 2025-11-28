@@ -1,109 +1,99 @@
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+// import { Badge } from "@/components/ui/badge"; // Ya no se usa la Badge
 
+// Las interfaces han sido actualizadas para coincidir con la respuesta del Worker
 interface MenuComidas {
-  [key: string]: string; // "Desayuno": "texto", "Comida": "texto", etc.
-  postre: string | null;
+  [key: string]: string | null; 
 }
 
 interface GeneratedMenu {
   nombre: string;
-  comidas: MenuComidas; // Es un objeto
+  comidas: MenuComidas; 
   postre: string | null;
 }
 
 interface MealPlanResponse {
-  menus: GeneratedMenu[]; // Array de menús
-  error?: string; // Para manejar errores
+  menus: GeneratedMenu[]; 
+  error?: string; 
+  // ⚠️ Si la API no devuelve 'totalNutrition', debes asegurar que esta sección se maneje correctamente 
+  // o eliminar la interfaz 'MealPlan' antigua. Dejo la estructura simple aquí.
 }
 
 interface MenuDisplayProps {
-  mealPlan: MealPlanResponse; // Cambia el tipo aquí
+  mealPlan: MealPlanResponse;
 }
 
 export const MenuDisplay = ({ mealPlan }: MenuDisplayProps) => {
- // En tu archivo MenuDisplay.tsx, dentro de la función MenuDisplay:
 
-return (
+  return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      
+      {/* 🟢 CORRECCIÓN VISIBILIDAD 1: Título principal a color sólido oscuro */}
       <div className="text-center space-y-2">
-        <h2 className="text-3xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+        <h2 className="text-3xl font-bold text-gray-900"> {/* Texto negro sólido para PDF */}
           Tu Plan de Comidas Personalizado
         </h2>
-        <p className="text-muted-foreground">
+        <p className="text-gray-700"> {/* Texto gris oscuro en lugar de muted-foreground */}
           Generado por IA según tus necesidades nutricionales
         </p>
       </div>
 
-      {/* ⚠️ CORRECCIÓN 1: Mapear sobre el array 'menus' */}
       {mealPlan.menus.map((menu, menuIndex) => (
         <Card
           key={menuIndex}
           className="p-6 border-2 hover:border-primary/50 transition-all duration-300 hover:shadow-lg"
         >
-          <h3 className="text-2xl font-bold text-primary mb-4">{menu.nombre}</h3>
-          
-          {/* ⚠️ CORRECCIÓN 2: Usar Object.entries() para mapear el objeto 'comidas' */}
-          {Object.entries(menu.comidas).map(([nombreComida, descripcionComida]) => (
-            <div key={nombreComida} className="mb-6 last:mb-0">
-              <div className="flex items-start justify-between mb-3">
-                <h4 className="text-xl font-semibold text-foreground">{nombreComida}</h4>
-                {/* ⚠️ CORRECCIÓN 3: Aquí no hay calorías por plato, solo texto. La badge debe eliminarse o adaptarse. */}
-                {/* <Badge variant="secondary" className="ml-2">
-                  {dish.nutrition.calories} kcal
-                </Badge> */}
-              </div>
+          <h3 className="text-2xl font-bold text-primary mb-4">
+            {menu.nombre}
+          </h3>
 
-              <div className="space-y-3">
-                {/* Mostrar la descripción/texto de la comida */}
-                <div className="bg-secondary/10 p-4 rounded-lg">
-                  <p className="text-sm font-medium text-foreground mb-2">
-                    Detalle:
-                  </p>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    {descripcionComida}
-                  </p>
+          {/* Mapeo sobre el objeto 'comidas' */}
+          {Object.entries(menu.comidas)
+            .filter(([key]) => key !== 'postre') // Filtrar la propiedad 'postre' si está dentro de 'comidas'
+            .map(
+            ([nombreComida, descripcionComida]) => (
+              <div key={nombreComida} className="mb-6 last:mb-0">
+                <div className="flex items-start justify-between mb-3">
+                  {/* 🟢 CORRECCIÓN VISIBILIDAD 2: Título de la comida a color oscuro */}
+                  <h4 className="text-xl font-semibold text-gray-900">
+                    {nombreComida}
+                  </h4>
+                  {/* <Badge> eliminada ya que no hay datos de nutrición detallados por plato */}
+                </div>
+
+                <div className="space-y-3">
+                  {/* Mostrar la descripción/texto de la comida */}
+                  <div className="bg-secondary/10 p-4 rounded-lg">
+                    {/* 🟢 CORRECCIÓN VISIBILIDAD 3: Etiquetas a color sólido */}
+                    <p className="text-sm font-medium text-gray-900 mb-2">
+                      Detalle:
+                    </p>
+                    {/* 🟢 CORRECCIÓN VISIBILIDAD 4: Descripción a color sólido */}
+                    <p className="text-sm text-gray-700 leading-relaxed">
+                      {descripcionComida}
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            )
+          )}
 
-          {/* Mostrar el postre si está separado */}
+          {/* Mostrar el postre si está separado (o dentro de comidas con clave 'postre') */}
           {menu.postre && menu.postre !== "null" && (
-              <div className="mt-4 p-4 border rounded-lg bg-yellow-50/50 dark:bg-yellow-900/20">
-                  <h4 className="text-xl font-semibold text-foreground mb-2">🍰 Postre</h4>
-                  <p className="text-sm text-muted-foreground">{menu.postre}</p>
-              </div>
+            <div className="mt-4 p-4 border rounded-lg bg-yellow-50/50 dark:bg-yellow-900/20">
+              {/* 🟢 CORRECCIÓN VISIBILIDAD 5: Título del Postre a color oscuro */}
+              <h4 className="text-xl font-semibold text-gray-900 mb-2">
+                🍰 Postre
+              </h4>
+              {/* 🟢 CORRECCIÓN VISIBILIDAD 6: Descripción del Postre a color oscuro */}
+              <p className="text-sm text-gray-700">{menu.postre}</p>
+            </div>
           )}
         </Card>
       ))}
 
-      {/* ⚠️ CORRECCIÓN 4: Si el Worker no devuelve 'totalNutrition' con esa estructura, 
-         esta sección fallará. La dejo COMENTADA por seguridad, a menos que tu 
-         IA garantice la inclusión de "totalNutrition" y "notes" en la respuesta.
-         
-      <Card className="p-6 bg-gradient-to-br from-primary/5 via-secondary/5 to-accent/5 border-2 border-primary">
-        <h3 className="text-xl font-bold text-foreground mb-4">
-          Resumen Nutricional Total
-        </h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="text-center p-4 bg-background rounded-lg">
-            <p className="text-sm text-muted-foreground mb-1">Calorías</p>
-            <p className="text-2xl font-bold text-foreground">
-              {mealPlan.totalNutrition.calories}
-            </p>
-          </div>
-          ... (Resto del resumen)
-        </div>
-        
-        {mealPlan.notes && (
-          <div className="mt-6 p-4 bg-background/50 rounded-lg">
-            <p className="text-sm font-medium text-foreground mb-2">Notas:</p>
-            <p className="text-sm text-muted-foreground">{mealPlan.notes}</p>
-          </div>
-        )}
-      </Card>
-      */}
+      {/* ⚠️ Nota sobre Resumen Nutricional: Este bloque se mantiene comentado ya que la IA no lo está devolviendo actualmente. */}
+      {/* ... */}
     </div>
   );
 };
