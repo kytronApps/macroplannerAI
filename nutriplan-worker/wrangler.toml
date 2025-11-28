@@ -1,0 +1,16 @@
+name = "nutriplan-worker"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+
+[build]
+command = "npm install"
+
+[wasm_modules]
+# si no usas wasm, no lo toques
+
+[build.upload]
+format = "modules"
+
+[build.externals]
+# 👇 evitar que wrangler intente bundlear groq-sdk
+dependencies = ["groq-sdk"]

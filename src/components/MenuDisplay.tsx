@@ -1,46 +1,30 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
-interface Dish {
-  name: string;
-  ingredients: string[];
-  nutrition: {
-    calories: number;
-    fats: number;
-    carbs: number;
-    proteins: number;
-    fatExchange?: number;
-    carbExchange?: number;
-    proteinExchange?: number;
-  };
-  instructions: string;
+interface MenuComidas {
+  [key: string]: string; // "Desayuno": "texto", "Comida": "texto", etc.
+  postre: string | null;
 }
 
-interface Meal {
-  name: string;
-  dishes: Dish[];
+interface GeneratedMenu {
+  nombre: string;
+  comidas: MenuComidas; // Es un objeto
+  postre: string | null;
 }
 
-interface MealPlan {
-  meals: Meal[];
-  totalNutrition: {
-    calories: number;
-    fats: number;
-    carbs: number;
-    proteins: number;
-    fatExchange?: number;
-    carbExchange?: number;
-    proteinExchange?: number;
-  };
-  notes?: string;
+interface MealPlanResponse {
+  menus: GeneratedMenu[]; // Array de menús
+  error?: string; // Para manejar errores
 }
 
 interface MenuDisplayProps {
-  mealPlan: MealPlan;
+  mealPlan: MealPlanResponse; // Cambia el tipo aquí
 }
 
 export const MenuDisplay = ({ mealPlan }: MenuDisplayProps) => {
-  return (
+ // En tu archivo MenuDisplay.tsx, dentro de la función MenuDisplay:
+
+return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="text-center space-y-2">
         <h2 className="text-3xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
@@ -51,82 +35,53 @@ export const MenuDisplay = ({ mealPlan }: MenuDisplayProps) => {
         </p>
       </div>
 
-      {mealPlan.meals.map((meal, mealIndex) => (
+      {/* ⚠️ CORRECCIÓN 1: Mapear sobre el array 'menus' */}
+      {mealPlan.menus.map((menu, menuIndex) => (
         <Card
-          key={mealIndex}
+          key={menuIndex}
           className="p-6 border-2 hover:border-primary/50 transition-all duration-300 hover:shadow-lg"
         >
-          <h3 className="text-2xl font-bold text-primary mb-4">{meal.name}</h3>
+          <h3 className="text-2xl font-bold text-primary mb-4">{menu.nombre}</h3>
           
-          {meal.dishes.map((dish, dishIndex) => (
-            <div key={dishIndex} className="mb-6 last:mb-0">
+          {/* ⚠️ CORRECCIÓN 2: Usar Object.entries() para mapear el objeto 'comidas' */}
+          {Object.entries(menu.comidas).map(([nombreComida, descripcionComida]) => (
+            <div key={nombreComida} className="mb-6 last:mb-0">
               <div className="flex items-start justify-between mb-3">
-                <h4 className="text-xl font-semibold text-foreground">{dish.name}</h4>
-                <Badge variant="secondary" className="ml-2">
+                <h4 className="text-xl font-semibold text-foreground">{nombreComida}</h4>
+                {/* ⚠️ CORRECCIÓN 3: Aquí no hay calorías por plato, solo texto. La badge debe eliminarse o adaptarse. */}
+                {/* <Badge variant="secondary" className="ml-2">
                   {dish.nutrition.calories} kcal
-                </Badge>
+                </Badge> */}
               </div>
 
               <div className="space-y-3">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-2">
-                    Ingredientes:
-                  </p>
-                  <ul className="list-disc list-inside space-y-1 text-sm">
-                    {dish.ingredients.map((ingredient, i) => (
-                      <li key={i} className="text-foreground">{ingredient}</li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <div className="bg-muted p-3 rounded-lg">
-                    <p className="text-xs text-muted-foreground">Grasas</p>
-                    <p className="text-lg font-bold text-primary">{dish.nutrition.fats}g</p>
-                    {dish.nutrition.fatExchange && (
-                      <p className="text-xs text-muted-foreground">
-                        {dish.nutrition.fatExchange.toFixed(2)} int.
-                      </p>
-                    )}
-                  </div>
-                  <div className="bg-muted p-3 rounded-lg">
-                    <p className="text-xs text-muted-foreground">Carbohidratos</p>
-                    <p className="text-lg font-bold text-secondary">{dish.nutrition.carbs}g</p>
-                    {dish.nutrition.carbExchange && (
-                      <p className="text-xs text-muted-foreground">
-                        {dish.nutrition.carbExchange.toFixed(2)} int.
-                      </p>
-                    )}
-                  </div>
-                  <div className="bg-muted p-3 rounded-lg">
-                    <p className="text-xs text-muted-foreground">Proteínas</p>
-                    <p className="text-lg font-bold text-accent">{dish.nutrition.proteins}g</p>
-                    {dish.nutrition.proteinExchange && (
-                      <p className="text-xs text-muted-foreground">
-                        {dish.nutrition.proteinExchange.toFixed(2)} int.
-                      </p>
-                    )}
-                  </div>
-                  <div className="bg-muted p-3 rounded-lg">
-                    <p className="text-xs text-muted-foreground">Calorías</p>
-                    <p className="text-lg font-bold text-foreground">{dish.nutrition.calories}</p>
-                  </div>
-                </div>
-
+                {/* Mostrar la descripción/texto de la comida */}
                 <div className="bg-secondary/10 p-4 rounded-lg">
                   <p className="text-sm font-medium text-foreground mb-2">
-                    Instrucciones:
+                    Detalle:
                   </p>
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    {dish.instructions}
+                    {descripcionComida}
                   </p>
                 </div>
               </div>
             </div>
           ))}
+
+          {/* Mostrar el postre si está separado */}
+          {menu.postre && menu.postre !== "null" && (
+              <div className="mt-4 p-4 border rounded-lg bg-yellow-50/50 dark:bg-yellow-900/20">
+                  <h4 className="text-xl font-semibold text-foreground mb-2">🍰 Postre</h4>
+                  <p className="text-sm text-muted-foreground">{menu.postre}</p>
+              </div>
+          )}
         </Card>
       ))}
 
+      {/* ⚠️ CORRECCIÓN 4: Si el Worker no devuelve 'totalNutrition' con esa estructura, 
+         esta sección fallará. La dejo COMENTADA por seguridad, a menos que tu 
+         IA garantice la inclusión de "totalNutrition" y "notes" en la respuesta.
+         
       <Card className="p-6 bg-gradient-to-br from-primary/5 via-secondary/5 to-accent/5 border-2 border-primary">
         <h3 className="text-xl font-bold text-foreground mb-4">
           Resumen Nutricional Total
@@ -138,39 +93,7 @@ export const MenuDisplay = ({ mealPlan }: MenuDisplayProps) => {
               {mealPlan.totalNutrition.calories}
             </p>
           </div>
-          <div className="text-center p-4 bg-background rounded-lg">
-            <p className="text-sm text-muted-foreground mb-1">Grasas</p>
-            <p className="text-2xl font-bold text-primary">
-              {mealPlan.totalNutrition.fats}g
-            </p>
-            {mealPlan.totalNutrition.fatExchange && (
-              <p className="text-xs text-muted-foreground mt-1">
-                {mealPlan.totalNutrition.fatExchange.toFixed(2)} intercambios
-              </p>
-            )}
-          </div>
-          <div className="text-center p-4 bg-background rounded-lg">
-            <p className="text-sm text-muted-foreground mb-1">Carbohidratos</p>
-            <p className="text-2xl font-bold text-secondary">
-              {mealPlan.totalNutrition.carbs}g
-            </p>
-            {mealPlan.totalNutrition.carbExchange && (
-              <p className="text-xs text-muted-foreground mt-1">
-                {mealPlan.totalNutrition.carbExchange.toFixed(2)} intercambios
-              </p>
-            )}
-          </div>
-          <div className="text-center p-4 bg-background rounded-lg">
-            <p className="text-sm text-muted-foreground mb-1">Proteínas</p>
-            <p className="text-2xl font-bold text-accent">
-              {mealPlan.totalNutrition.proteins}g
-            </p>
-            {mealPlan.totalNutrition.proteinExchange && (
-              <p className="text-xs text-muted-foreground mt-1">
-                {mealPlan.totalNutrition.proteinExchange.toFixed(2)} intercambios
-              </p>
-            )}
-          </div>
+          ... (Resto del resumen)
         </div>
         
         {mealPlan.notes && (
@@ -180,6 +103,7 @@ export const MenuDisplay = ({ mealPlan }: MenuDisplayProps) => {
           </div>
         )}
       </Card>
+      */}
     </div>
   );
 };

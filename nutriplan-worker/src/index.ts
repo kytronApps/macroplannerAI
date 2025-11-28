@@ -11,41 +11,36 @@ interface MealRequest {
   preferences: string;
   intolerances: string;
   menuCount: number;
-  objective: "perder" | "ganar";
+  objective?: string;
 }
+
+// ===============================
+//   🔥 CORS CONFIG
+// ===============================
+const allowedOrigin = "https://macroplannerai.web.app";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": allowedOrigin,
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
 
 export default {
   async fetch(request: Request, env: { GROQ_API_KEY: string }): Promise<Response> {
-    
-    // ============================
-    // ⭐ CORS PRE-FLIGHT (OPTIONS)
-    // ============================
+
+    // 1️⃣ OPTIONS preflight
     if (request.method === "OPTIONS") {
-      return new Response(null, {
-        status: 204,
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Methods": "POST, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type",
-        },
-      });
+      return new Response(null, { status: 204, headers: corsHeaders });
     }
 
-    // ============================
-    // ❌ Método no permitido
-    // ============================
+    // 2️⃣ Solo POST permitido
     if (request.method !== "POST") {
       return new Response("Method Not Allowed", {
         status: 405,
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-        },
+        headers: corsHeaders,
       });
     }
 
-    // ============================
-    // ⭐ Lógica principal
-    // ============================
     try {
       const body = (await request.json()) as MealRequest;
 
@@ -63,25 +58,23 @@ export default {
         objective,
       } = body;
 
-      const groq = new Groq({
-        apiKey: env.GROQ_API_KEY,
-      });
+      const groq = new Groq({ apiKey: env.GROQ_API_KEY });
 
+      // 3️⃣ Prompt
       const prompt = `
-Genera ${menuCount || 1} menús saludables basados en el objetivo: ${objective}
-
-VALORES:
+Genera ${menuCount || 1} menús saludables y completos basados en:
+- Objetivo: ${objective || "no especificado"}
 - Calorías: ${calories}
 - Grasas: ${fats}g
 - Carbohidratos: ${carbs}g
 - Proteínas: ${proteins}g
-- Comidas: ${meals.join(", ")}
+- Comidas del día: ${meals.join(", ")}
 - Postre: ${includeDessert ? "Sí" : "No"}
 - Alergias: ${allergies || "ninguna"}
 - Preferencias: ${preferences || "ninguna"}
 - Intolerancias: ${intolerances || "ninguna"}
 
-Devuelve SOLO JSON válido:
+Devuelve SOLO JSON válido EXACTO:
 {
   "menus": [
     {
@@ -95,8 +88,10 @@ Devuelve SOLO JSON válido:
       "postre": "texto o null"
     }
   ]
-}`;
+}
+`;
 
+      // 4️⃣ Llamada al modelo
       const completion = await groq.chat.completions.create({
         model: "llama-3.1-8b-instant",
         messages: [{ role: "user", content: prompt }],
@@ -104,29 +99,39 @@ Devuelve SOLO JSON válido:
       });
 
       const text = completion.choices[0]?.message?.content || "{}";
-      const json = JSON.parse(text);
 
+      // 5️⃣ Parseo SEGURO (esto evita crasheos)
+      let json;
+      try {
+        json = JSON.parse(text);
+      } catch (e) {
+        json = { menus: [] }; // fallback seguro
+      }
+
+      // Si el modelo no devuelve "menus"
+      if (!json.menus || !Array.isArray(json.menus)) {
+        json.menus = [];
+      }
+
+      // 6️⃣ Respuesta final
       return new Response(JSON.stringify(json), {
         status: 200,
         headers: {
           "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
+          ...corsHeaders,
         },
       });
 
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Unknown error occurred";
+      const message = err instanceof Error ? err.message : "Unknown error";
 
-      return new Response(
-        JSON.stringify({ error: message }),
-        {
-          status: 500,
-          headers: {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
-          },
-        }
-      );
+      return new Response(JSON.stringify({ menus: [], error: message }), {
+        status: 500,
+        headers: {
+          "Content-Type": "application/json",
+          ...corsHeaders,
+        },
+      });
     }
   },
 };
