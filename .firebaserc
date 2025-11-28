@@ -1,5 +1,8 @@
 {
   "projects": {
-    "default": "kytron-apps"
-  }
+    "default": "macroplannerai",
+    "macroplannerai": "macroplannerai"
+  },
+  "targets": {},
+  "etags": {}
 }
