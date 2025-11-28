@@ -1,11 +1,6 @@
 import { Card } from "@/components/ui/card";
+import { ExchangeCalculatorProps } from "@/types/exchange-calculator.types";
 
-interface ExchangeCalculatorProps {
-  fats: number;
-  carbs: number;
-  proteins: number;
-  objective: "perder" | "ganar";
-}
 
 export const ExchangeCalculator = ({
   fats,
@@ -13,28 +8,18 @@ export const ExchangeCalculator = ({
   proteins,
   objective,
 }: ExchangeCalculatorProps) => {
-
-  // ===========================
-  // 🔵 MODO PERDER GRASA
-  // ===========================
   const fatExchangeLoss = fats / 5;
   const carbExchangeLoss = carbs / 15;
   const proteinExchangeLoss = proteins / 7;
-  const totalLoss =
-    fatExchangeLoss + carbExchangeLoss + proteinExchangeLoss;
+  const totalLoss = fatExchangeLoss + carbExchangeLoss + proteinExchangeLoss;
 
-  // ===========================
-  // 🟢 MODO GANAR MASA (por 28g)
-  // ===========================
-  const portion = 28; // estándar de tu Excel real
+  const portion = 28;
 
-  const fatExchangeGain = (fats / 100 * portion) / 5;
-  const carbExchangeGain = (carbs / 100 * portion) / 15;
-  const proteinExchangeGain = (proteins / 100 * portion) / 7;
-  const totalGain =
-    fatExchangeGain + carbExchangeGain + proteinExchangeGain;
+  const fatExchangeGain = ((fats / 100) * portion) / 5;
+  const carbExchangeGain = ((carbs / 100) * portion) / 15;
+  const proteinExchangeGain = ((proteins / 100) * portion) / 7;
+  const totalGain = fatExchangeGain + carbExchangeGain + proteinExchangeGain;
 
-  // Which mode?
   const isGain = objective === "ganar";
 
   const fat = isGain ? fatExchangeGain : fatExchangeLoss;
@@ -42,14 +27,14 @@ export const ExchangeCalculator = ({
   const prot = isGain ? proteinExchangeGain : proteinExchangeLoss;
   const total = isGain ? totalGain : totalLoss;
 
-  // Función para mostrar iconos (porciones)
   const renderPortions = (count: number, emoji: string) => {
-    return Array(Math.max(1, Math.round(count))).fill(emoji).join(" ");
+    return Array(Math.max(1, Math.round(count)))
+      .fill(emoji)
+      .join(" ");
   };
 
   return (
     <Card className="p-6 bg-gradient-to-br from-primary/10 to-secondary/10 border-2 border-primary/20">
-
       <h3 className="text-xl font-bold mb-4">
         Cálculo de Intercambios Nutricionales
       </h3>
@@ -57,14 +42,14 @@ export const ExchangeCalculator = ({
       {/* Mensaje introductorio inteligente */}
       {isGain ? (
         <p className="text-sm text-muted-foreground mb-4">
-          Estás en modo <strong>ganar masa</strong>.  
-          Los valores introducidos son por <strong>100g</strong> del producto y se convierten  
-          usando una porción estándar de <strong>28g</strong>.
+          Estás en modo <strong>ganar masa</strong>. Los valores introducidos
+          son por <strong>100g</strong> del producto y se convierten usando una
+          porción estándar de <strong>28g</strong>.
         </p>
       ) : (
         <p className="text-sm text-muted-foreground mb-4">
-          Estás en modo <strong>perder grasa</strong>.  
-          Estos valores representan <strong>lo que consumirás realmente</strong>.
+          Estás en modo <strong>perder grasa</strong>. Estos valores representan{" "}
+          <strong>lo que consumirás realmente</strong>.
         </p>
       )}
 
@@ -87,7 +72,9 @@ export const ExchangeCalculator = ({
 
         {/* Total */}
         <div className="flex justify-between p-4 bg-background rounded-lg border-2 border-primary mt-4">
-          <span className="text-base font-semibold">Total de Intercambios:</span>
+          <span className="text-base font-semibold">
+            Total de Intercambios:
+          </span>
           <span
             className={`text-xl font-bold ${
               total >= 0.9 && total <= 1.1 ? "text-primary" : "text-destructive"
@@ -101,7 +88,8 @@ export const ExchangeCalculator = ({
       {/* Advertencia solo en modo ganar */}
       {isGain && (total < 0.9 || total > 1.1) && (
         <p className="text-sm text-destructive text-center mt-2">
-          ⚠️ Para ganar masa con porciones de 28g, el total debe ser cercano a 1.00
+          ⚠️ Para ganar masa con porciones de 28g, el total debe ser cercano a
+          1.00
         </p>
       )}
 
@@ -113,19 +101,19 @@ export const ExchangeCalculator = ({
 
         <ul className="space-y-2 text-sm">
           <li>
-            🥑 <strong>Grasas:</strong> {renderPortions(fat, "🥑")}  
+            🥑 <strong>Grasas:</strong> {renderPortions(fat, "🥑")}
             <span className="text-muted-foreground ml-1">
               ({Math.round(fat)} porciones de 10g)
             </span>
           </li>
           <li>
-            🍞 <strong>Carbohidratos:</strong> {renderPortions(carb, "🍞")}  
+            🍞 <strong>Carbohidratos:</strong> {renderPortions(carb, "🍞")}
             <span className="text-muted-foreground ml-1">
               ({Math.round(carb)} porciones de 15g)
             </span>
           </li>
           <li>
-            🍗 <strong>Proteínas:</strong> {renderPortions(prot, "🍗")}  
+            🍗 <strong>Proteínas:</strong> {renderPortions(prot, "🍗")}
             <span className="text-muted-foreground ml-1">
               ({Math.round(prot)} porciones de 7g)
             </span>
@@ -133,11 +121,11 @@ export const ExchangeCalculator = ({
         </ul>
 
         <p className="text-sm text-muted-foreground mt-4">
-          Estas porciones serán utilizadas para generar tus menús según tu objetivo:
+          Estas porciones serán utilizadas para generar tus menús según tu
+          objetivo:
           <strong> {isGain ? "ganar masa muscular" : "perder grasa"}</strong>.
         </p>
       </div>
-
     </Card>
   );
 };

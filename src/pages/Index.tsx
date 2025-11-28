@@ -7,8 +7,14 @@ import { PreferencesForm } from "@/components/PreferencesForm";
 import { ExchangeCalculator } from "@/components/ExchangeCalculator";
 import { MenuDisplay } from "@/components/MenuDisplay";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, ChefHat, Sparkles } from "lucide-react";
+import { Loader2, ChefHat, Sparkles, FileText } from "lucide-react"; // Importamos FileText para el icono del PDF
 import { ObjectiveSelector } from "@/components/ObjectiveSelector";
+
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
+
+// ⚠️ Nota: Asume que las interfaces del tipo de respuesta (mealPlan)
+// han sido actualizadas según las correcciones previas en MenuDisplay.tsx.
 
 const Index = () => {
   const [calories, setCalories] = useState("");
@@ -29,10 +35,9 @@ const Index = () => {
   const [menuCount, setMenuCount] = useState(1);
   const { toast } = useToast();
 
-const [objective, setObjective] = useState<"perder" | "ganar">("perder");
-
-
-
+  const [objective, setObjective] = useState<"perder" | "ganar" | "mantener">(
+    "perder"
+  );
 
   const handleMealToggle = (meal: string) => {
     setSelectedMeals((prev) =>
@@ -108,6 +113,64 @@ const [objective, setObjective] = useState<"perder" | "ganar">("perder");
     }
   };
 
+  // FUNCIÓN PARA DESCARGAR PDF (AÑADIDA)
+  const handleDownloadPDF = async () => {
+    // 1. Identificar el contenedor del menú por su ID
+    const input = document.getElementById("meal-plan-content");
+
+    if (!input) {
+      toast({
+        title: "Error de captura",
+        description:
+          "No se pudo encontrar el contenido del menú para descargar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // 2. Convertir el HTML a Canvas (Imagen)
+    const canvas = await html2canvas(input, {
+      scale: 2, // Mejora la calidad de la imagen
+      logging: false,
+      useCORS: true,
+    });
+
+    const imgData = canvas.toDataURL("image/png");
+
+    // 3. Crear el documento PDF (Formato A4)
+    const pdf = new jsPDF("p", "mm", "a4");
+    const imgWidth = 210; // Ancho A4 en mm
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    let position = 0;
+
+    // Lógica para manejar contenido multi-página si el menú es muy largo
+    if (imgHeight > 297) {
+      // 297 es la altura A4 en mm
+      let heightLeft = imgHeight;
+
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+        heightLeft -= 297;
+
+        if (heightLeft > -1) {
+          pdf.addPage();
+        }
+      }
+    } else {
+      // Contenido cabe en una sola página
+      pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight);
+    }
+
+    // 4. Descargar el archivo
+    pdf.save("NutriPlan_Personalizado.pdf");
+
+    toast({
+      title: "Descarga completada",
+      description: "Tu plan de comidas ha sido descargado como PDF.",
+    });
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-secondary/5">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
@@ -126,20 +189,19 @@ const [objective, setObjective] = useState<"perder" | "ganar">("perder");
 
         <div className="grid gap-8">
           {/* --- SECCIÓN 0: Objetivo --- */}
-<Card className="p-6 md:p-8 border-2 shadow-lg">
-  <div className="flex items-center gap-2 mb-6">
-    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-      <span className="text-primary font-bold">0</span>
-    </div>
-    <h2 className="text-2xl font-bold text-foreground">Objetivo</h2>
-  </div>
+          <Card className="p-6 md:p-8 border-2 shadow-lg">
+            <div className="flex items-center gap-2 mb-6">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <span className="text-primary font-bold">0</span>
+              </div>
+              <h2 className="text-2xl font-bold text-foreground">Objetivo</h2>
+            </div>
 
-  <ObjectiveSelector
-    objective={objective}
-    onObjectiveChange={setObjective}
-  />
-</Card>
-
+            <ObjectiveSelector
+              objective={objective}
+              onObjectiveChange={setObjective}
+            />
+          </Card>
 
           {/* --- SECCIÓN 1 --- */}
           <Card className="p-6 md:p-8 border-2 shadow-lg">
@@ -166,12 +228,11 @@ const [objective, setObjective] = useState<"perder" | "ganar">("perder");
             {calories && fats && carbs && proteins && (
               <div className="mt-6">
                 <ExchangeCalculator
-  fats={parseFloat(fats)}
-  carbs={parseFloat(carbs)}
-  proteins={parseFloat(proteins)}
-  objective={objective}
-/>
-
+                  fats={parseFloat(fats)}
+                  carbs={parseFloat(carbs)}
+                  proteins={parseFloat(proteins)}
+                  objective={objective}
+                />
               </div>
             )}
           </Card>
@@ -218,7 +279,7 @@ const [objective, setObjective] = useState<"perder" | "ganar">("perder");
             />
           </Card>
 
-          {/* BOTÓN */}
+          {/* BOTÓN DE GENERACIÓN */}
           <div className="flex justify-center">
             <Button
               onClick={handleGenerateMealPlan}
@@ -240,9 +301,25 @@ const [objective, setObjective] = useState<"perder" | "ganar">("perder");
             </Button>
           </div>
 
+          {/* MENÚ Y BOTÓN DE DESCARGA (CORREGIDO) */}
           {mealPlan && (
             <div className="mt-8">
-              <MenuDisplay mealPlan={mealPlan} />
+              {/* Botón de descarga PDF */}
+              <div className="flex justify-end mb-4">
+                <Button
+                  onClick={handleDownloadPDF}
+                  variant="outline"
+                  className="bg-white hover:bg-gray-100 border-2 border-primary text-primary"
+                >
+                  <FileText className="mr-2 h-4 w-4" />
+                  Descargar Plan (PDF)
+                </Button>
+              </div>
+
+              {/* Contenido a capturar por html2canvas */}
+              <div id="meal-plan-content">
+                <MenuDisplay mealPlan={mealPlan} />
+              </div>
             </div>
           )}
         </div>
