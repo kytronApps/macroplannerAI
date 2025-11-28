@@ -177,7 +177,8 @@ const Index = () => {
         <div className="text-center mb-12 space-y-4">
           <div className="flex items-center justify-center gap-3 mb-4">
             <ChefHat className="w-12 h-12 text-primary" />
-            <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
+            <h1 className="text-4xl md:text-5xl font-bold text-gray-900">
+              {" "}
               NutriPlan AI
             </h1>
           </div>
