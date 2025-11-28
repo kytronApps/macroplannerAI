@@ -8,6 +8,7 @@ import { ExchangeCalculator } from "@/components/ExchangeCalculator";
 import { MenuDisplay } from "@/components/MenuDisplay";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, ChefHat, Sparkles } from "lucide-react";
+import { ObjectiveSelector } from "@/components/ObjectiveSelector";
 
 const Index = () => {
   const [calories, setCalories] = useState("");
@@ -27,6 +28,11 @@ const Index = () => {
   const [mealPlan, setMealPlan] = useState(null);
   const [menuCount, setMenuCount] = useState(1);
   const { toast } = useToast();
+
+const [objective, setObjective] = useState<"perder" | "ganar">("perder");
+
+
+
 
   const handleMealToggle = (meal: string) => {
     setSelectedMeals((prev) =>
@@ -73,6 +79,7 @@ const Index = () => {
             preferences,
             intolerances,
             menuCount,
+            objective,
           }),
         }
       );
@@ -118,6 +125,22 @@ const Index = () => {
         </div>
 
         <div className="grid gap-8">
+          {/* --- SECCIÓN 0: Objetivo --- */}
+<Card className="p-6 md:p-8 border-2 shadow-lg">
+  <div className="flex items-center gap-2 mb-6">
+    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+      <span className="text-primary font-bold">0</span>
+    </div>
+    <h2 className="text-2xl font-bold text-foreground">Objetivo</h2>
+  </div>
+
+  <ObjectiveSelector
+    objective={objective}
+    onObjectiveChange={setObjective}
+  />
+</Card>
+
+
           {/* --- SECCIÓN 1 --- */}
           <Card className="p-6 md:p-8 border-2 shadow-lg">
             <div className="flex items-center gap-2 mb-6">
@@ -143,10 +166,12 @@ const Index = () => {
             {calories && fats && carbs && proteins && (
               <div className="mt-6">
                 <ExchangeCalculator
-                  fats={parseFloat(fats)}
-                  carbs={parseFloat(carbs)}
-                  proteins={parseFloat(proteins)}
-                />
+  fats={parseFloat(fats)}
+  carbs={parseFloat(carbs)}
+  proteins={parseFloat(proteins)}
+  objective={objective}
+/>
+
               </div>
             )}
           </Card>
