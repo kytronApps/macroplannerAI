@@ -1,22 +1,26 @@
-import { Card } from "@/components/ui/card";
-// import { Badge } from "@/components/ui/badge"; // Ya no se usa la Badge
+// src/components/MenuDisplay.tsx (CORREGIDO Y FINALIZADO)
 
-// Las interfaces han sido actualizadas para coincidir con la respuesta del Worker
-interface MenuComidas {
-  [key: string]: string | null; 
+import { Card } from "@/components/ui/card";
+
+// 🟢 NUEVAS INTERFACES PARA EL LISTADO DETALLADO
+interface Ingrediente {
+  ingrediente: string;
+  cantidad: string;
+}
+
+interface Comida {
+  [key: string]: Ingrediente[]; // Clave: "Desayuno", Valor: Array de Ingredientes
 }
 
 interface GeneratedMenu {
   nombre: string;
-  comidas: MenuComidas; 
+  comidas: Comida; 
   postre: string | null;
 }
 
 interface MealPlanResponse {
   menus: GeneratedMenu[]; 
   error?: string; 
-  // ⚠️ Si la API no devuelve 'totalNutrition', debes asegurar que esta sección se maneje correctamente 
-  // o eliminar la interfaz 'MealPlan' antigua. Dejo la estructura simple aquí.
 }
 
 interface MenuDisplayProps {
@@ -28,12 +32,11 @@ export const MenuDisplay = ({ mealPlan }: MenuDisplayProps) => {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
       
-      {/* 🟢 CORRECCIÓN VISIBILIDAD 1: Título principal a color sólido oscuro */}
       <div className="text-center space-y-2">
-        <h2 className="text-3xl font-bold text-gray-900"> {/* Texto negro sólido para PDF */}
+        <h2 className="text-3xl font-bold text-gray-900">
           Tu Plan de Comidas Personalizado
         </h2>
-        <p className="text-gray-700"> {/* Texto gris oscuro en lugar de muted-foreground */}
+        <p className="text-gray-700">
           Generado por IA según tus necesidades nutricionales
         </p>
       </div>
@@ -47,53 +50,40 @@ export const MenuDisplay = ({ mealPlan }: MenuDisplayProps) => {
             {menu.nombre}
           </h3>
 
-          {/* Mapeo sobre el objeto 'comidas' */}
+          {/* Mapear sobre las comidas (Desayuno, Comida, etc.) */}
           {Object.entries(menu.comidas)
-            .filter(([key]) => key !== 'postre') // Filtrar la propiedad 'postre' si está dentro de 'comidas'
-            .map(
-            ([nombreComida, descripcionComida]) => (
-              <div key={nombreComida} className="mb-6 last:mb-0">
-                <div className="flex items-start justify-between mb-3">
-                  {/* 🟢 CORRECCIÓN VISIBILIDAD 2: Título de la comida a color oscuro */}
-                  <h4 className="text-xl font-semibold text-gray-900">
-                    {nombreComida}
-                  </h4>
-                  {/* <Badge> eliminada ya que no hay datos de nutrición detallados por plato */}
-                </div>
-
-                <div className="space-y-3">
-                  {/* Mostrar la descripción/texto de la comida */}
-                  <div className="bg-secondary/10 p-4 rounded-lg">
-                    {/* 🟢 CORRECCIÓN VISIBILIDAD 3: Etiquetas a color sólido */}
-                    <p className="text-sm font-medium text-gray-900 mb-2">
-                      Detalle:
-                    </p>
-                    {/* 🟢 CORRECCIÓN VISIBILIDAD 4: Descripción a color sólido */}
-                    <p className="text-sm text-gray-700 leading-relaxed">
-                      {descripcionComida}
-                    </p>
-                  </div>
-                </div>
+            .map(([nombreComida, ingredientes]) => (
+              <div key={nombreComida} className="mb-6 last:mb-0 p-4 border rounded-lg bg-background/50">
+                <h4 className="text-xl font-semibold text-gray-900 mb-3">{nombreComida}</h4>
+                
+                <p className="text-sm font-medium text-gray-700 mb-2">Ingredientes y Cantidades:</p>
+                
+                {/* 🟢 LISTADO CLAVE: Mapear sobre el array de ingredientes */}
+                {Array.isArray(ingredientes) && ingredientes.length > 0 ? (
+                  <ul className="list-none space-y-1">
+                    {ingredientes.map((item, i) => (
+                      <li key={i} className="flex justify-between border-b border-dashed border-gray-300 dark:border-gray-700 pb-1 last:border-b-0 last:pb-0">
+                        <span className="text-foreground text-sm">{item.ingrediente}</span>
+                        <span className="font-semibold text-primary text-sm">{item.cantidad}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No hay ingredientes detallados para esta comida.</p>
+                )}
               </div>
             )
           )}
 
-          {/* Mostrar el postre si está separado (o dentro de comidas con clave 'postre') */}
+          {/* Mostrar el postre */}
           {menu.postre && menu.postre !== "null" && (
             <div className="mt-4 p-4 border rounded-lg bg-yellow-50/50 dark:bg-yellow-900/20">
-              {/* 🟢 CORRECCIÓN VISIBILIDAD 5: Título del Postre a color oscuro */}
-              <h4 className="text-xl font-semibold text-gray-900 mb-2">
-                🍰 Postre
-              </h4>
-              {/* 🟢 CORRECCIÓN VISIBILIDAD 6: Descripción del Postre a color oscuro */}
+              <h4 className="text-xl font-semibold text-gray-900 mb-2">🍰 Postre</h4>
               <p className="text-sm text-gray-700">{menu.postre}</p>
             </div>
           )}
         </Card>
       ))}
-
-      {/* ⚠️ Nota sobre Resumen Nutricional: Este bloque se mantiene comentado ya que la IA no lo está devolviendo actualmente. */}
-      {/* ... */}
     </div>
   );
 };
