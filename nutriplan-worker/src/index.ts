@@ -59,15 +59,17 @@ Genera ${menuCount || 1} menús saludables basados en:
 
 ${
   includeDessert
-    ? `Cada menú debe incluir un postre detallado.`
-    : `El campo "postre" debe ser null.`
+    ? `INSTRUCCIÓN CRÍTICA: Cada menú debe incluir un postre detallado en el campo "postre" y NO en las comidas.`
+    : `INSTRUCCIÓN CRÍTICA: El campo "postre" debe ser null.`
 }
 
 ${
   menuCount > 1
-    ? `Los nombres de cada menú deben ser únicos (ej: "Menú 1", "Menú 2").`
+    ? `Los nombres de CADA menú deben ser únicos (ej: "Menú 1", "Menú 2").`
     : ""
 }
+
+INSTRUCCIÓN CLAVE: El valor de CADA comida (Desayuno, Comida, etc.) debe ser SIEMPRE un ARRAY DE OBJETOS [{ "ingrediente": "x", "cantidad": "y" }], incluso si está vacío.
 
 Devuelve SOLO JSON válido EXACTO con el siguiente formato:
 {
@@ -96,13 +98,23 @@ Devuelve SOLO JSON válido EXACTO con el siguiente formato:
       });
 
       const raw = completion.choices?.[0]?.message?.content || "{}";
-
+      
+      // 🟢 CORRECCIÓN 1: Limpieza del Markdown/bloques de código antes de parsear (Ya lo tienes implementado)
+      let cleanedRaw = raw.trim();
+      if (cleanedRaw.startsWith("```json")) {
+        cleanedRaw = cleanedRaw.substring(7);
+      }
+      if (cleanedRaw.endsWith("```")) {
+        cleanedRaw = cleanedRaw.substring(0, cleanedRaw.length - 3);
+      }
+      
       // 6) Intentar parsear respuesta
       let json;
       try {
-        json = JSON.parse(raw);
-      } catch {
-        json = { menus: [] };
+        json = JSON.parse(cleanedRaw);
+      } catch (e) {
+        // En caso de error de parseo, devolvemos un error explícito.
+        json = { menus: [], error: "Error de formato JSON de la IA." };
       }
 
       if (!json.menus || !Array.isArray(json.menus)) {
