@@ -1,3 +1,5 @@
+// src/pages/Index.tsx (CORREGIDO Y FINALIZADO)
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -7,20 +9,23 @@ import { PreferencesForm } from "@/components/PreferencesForm";
 import { ExchangeCalculator } from "@/components/ExchangeCalculator";
 import { MenuDisplay } from "@/components/MenuDisplay";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, ChefHat, Sparkles, FileText } from "lucide-react"; // Importamos FileText para el icono del PDF
+import { Loader2, ChefHat, Sparkles, FileText } from "lucide-react"; 
 import { ObjectiveSelector } from "@/components/ObjectiveSelector";
 
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 
-// ⚠️ Nota: Asume que las interfaces del tipo de respuesta (mealPlan)
-// han sido actualizadas según las correcciones previas en MenuDisplay.tsx.
+
 
 const Index = () => {
-  const [calories, setCalories] = useState("");
+  // 🔴 REMOVIDO: const [calories, setCalories] = useState("");
   const [fats, setFats] = useState("");
   const [carbs, setCarbs] = useState("");
   const [proteins, setProteins] = useState("");
+  
+  const [height, setHeight] = useState(""); 
+  const [weight, setWeight] = useState(""); 
+  
   const [selectedMeals, setSelectedMeals] = useState<string[]>([
     "Desayuno",
     "Comida",
@@ -45,8 +50,18 @@ const Index = () => {
     );
   };
 
+  // 🟢 LÓGICA: Cálculo Total Kcal (Suma de Macros)
+  const fatsInKcal = parseFloat(fats);
+  const carbsInKcal = parseFloat(carbs);
+  const proteinsInKcal = parseFloat(proteins);
+
+  const totalKcal = (isNaN(fatsInKcal) ? 0 : fatsInKcal) +
+                   (isNaN(carbsInKcal) ? 0 : carbsInKcal) +
+                   (isNaN(proteinsInKcal) ? 0 : proteinsInKcal);
+
   const handleGenerateMealPlan = async () => {
-    if (!calories || !fats || !carbs || !proteins) {
+    // 🔴 CONDICIONAL CORREGIDO: Ya no chequea 'calories', solo los macros
+    if (!fats || !carbs || !proteins) { 
       toast({
         title: "Campos incompletos",
         description: "Por favor completa todos los valores nutricionales",
@@ -74,7 +89,7 @@ const Index = () => {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            calories: parseFloat(calories),
+            calories: totalKcal, // 🔴 Usar totalKcal calculado
             fats: parseFloat(fats),
             carbs: parseFloat(carbs),
             proteins: parseFloat(proteins),
@@ -171,6 +186,26 @@ const Index = () => {
     });
   };
 
+  // 🟢 LÓGICA DE CÁLCULO PARA LA PORCIÓN DINÁMICA
+  const numericWeight = parseFloat(weight);
+  const basePortion = 28;
+  let dynamicPortion = basePortion; 
+
+  if (!isNaN(numericWeight) && numericWeight > 0) {
+      const baseWeight = 70;
+      if (numericWeight > baseWeight) {
+          const weightDiff = numericWeight - baseWeight;
+          dynamicPortion = basePortion + (weightDiff * 0.5); 
+          dynamicPortion = Math.round(dynamicPortion * 10) / 10; 
+      }
+  }
+
+  // 🔴 CONVERSIÓN CRÍTICA: Kcal de entrada -> Gramos para la calculadora (Fórmulas: Fat/9, Carbs/4, Protein/4)
+  const fatsInGrams = isNaN(fatsInKcal) || fatsInKcal === 0 ? 0 : fatsInKcal / 9; 
+  const carbsInGrams = isNaN(carbsInKcal) || carbsInKcal === 0 ? 0 : carbsInKcal / 4;
+  const proteinsInGrams = isNaN(proteinsInKcal) || proteinsInKcal === 0 ? 0 : proteinsInKcal / 4;
+
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-secondary/5">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
@@ -203,35 +238,42 @@ const Index = () => {
             />
           </Card>
 
-          {/* --- SECCIÓN 1 --- */}
+          {/* --- SECCIÓN 1: Valores Nutricionales y Biométricos --- */}
           <Card className="p-6 md:p-8 border-2 shadow-lg">
             <div className="flex items-center gap-2 mb-6">
               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
                 <span className="text-primary font-bold">1</span>
               </div>
               <h2 className="text-2xl font-bold text-foreground">
-                Valores Nutricionales
-              </h2>
+                Valores Nutricionales y Biométricos
+              </h2> 
             </div>
 
             <NutritionalInput
-              calories={calories}
+              // 🔴 REMOVIDO: calories={calories}
+              // 🟢 NUEVO: Pasamos el total calculado
+              totalKcalDisplay={totalKcal.toFixed(0)}
               fats={fats}
               carbs={carbs}
               proteins={proteins}
-              onCaloriesChange={setCalories}
+              height={height}
+              weight={weight}
+              // 🔴 REMOVIDO: onCaloriesChange={setCalories}
               onFatsChange={setFats}
               onCarbsChange={setCarbs}
               onProteinsChange={setProteins}
+              onHeightChange={setHeight}
+              onWeightChange={setWeight}
             />
 
-            {calories && fats && carbs && proteins && (
+            {totalKcal > 0 && fats && carbs && proteins && ( // Condicional actualizado
               <div className="mt-6">
                 <ExchangeCalculator
-                  fats={parseFloat(fats)}
-                  carbs={parseFloat(carbs)}
-                  proteins={parseFloat(proteins)}
+                  fats={fatsInGrams} // 🔴 PASAMOS GRAMOS CONVERTIDOS
+                  carbs={carbsInGrams} // 🔴 PASAMOS GRAMOS CONVERTIDOS
+                  proteins={proteinsInGrams} // 🔴 PASAMOS GRAMOS CONVERTIDOS
                   objective={objective}
+                  dynamicPortion={dynamicPortion}
                 />
               </div>
             )}

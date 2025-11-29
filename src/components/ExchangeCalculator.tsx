@@ -1,26 +1,32 @@
+// src/components/ExchangeCalculator.tsx (CORREGIDO Y FINALIZADO)
+
 import { Card } from "@/components/ui/card";
 import { ExchangeCalculatorProps } from "@/types/exchange-calculator.types";
-
 
 export const ExchangeCalculator = ({
   fats,
   carbs,
   proteins,
   objective,
+  dynamicPortion, // 🟢 Recibido de props
 }: ExchangeCalculatorProps) => {
+
+  // Lógica original de tu sistema (basada en gramos de intercambio: 5g, 15g, 7g)
   const fatExchangeLoss = fats / 5;
   const carbExchangeLoss = carbs / 15;
   const proteinExchangeLoss = proteins / 7;
   const totalLoss = fatExchangeLoss + carbExchangeLoss + proteinExchangeLoss;
 
-  const portion = 28;
+  // 🟢 El valor dinámico (28g por defecto) es utilizado aquí
+  const portionToUse = dynamicPortion > 0 ? dynamicPortion : 28;
 
-  const fatExchangeGain = ((fats / 100) * portion) / 5;
-  const carbExchangeGain = ((carbs / 100) * portion) / 15;
-  const proteinExchangeGain = ((proteins / 100) * portion) / 7;
+  const fatExchangeGain = ((fats / 100) * portionToUse) / 5;
+  const carbExchangeGain = ((carbs / 100) * portionToUse) / 15;
+  const proteinExchangeGain = ((proteins / 100) * portionToUse) / 7;
   const totalGain = fatExchangeGain + carbExchangeGain + proteinExchangeGain;
 
   const isGain = objective === "ganar";
+  const isMaintain = objective === "mantener"; 
 
   const fat = isGain ? fatExchangeGain : fatExchangeLoss;
   const carb = isGain ? carbExchangeGain : carbExchangeLoss;
@@ -39,12 +45,34 @@ export const ExchangeCalculator = ({
         Cálculo de Intercambios Nutricionales
       </h3>
 
+      {/* 🟢 CASILLA DE EXPLICACIÓN FIJA (Sintaxis corregida) */}
+      <div className="mb-6 p-4 bg-yellow-100/50 dark:bg-yellow-900/20 border-l-4 border-yellow-500 rounded-lg">
+        <h4 className="text-sm font-bold text-yellow-800 dark:text-yellow-200 mb-2">
+          Criterio de Cálculo (Intercambios)
+        </h4>
+        <ul className="list-disc list-inside text-xs space-y-1 text-gray-700 dark:text-gray-300">
+          <li>
+            La base del sistema es: **1 Intercambio = 100 Kilocalorías** (kcal).
+          </li>
+          <li>
+            El cálculo usa la conversión de tu sistema: **Gramos / Divisor Fijo** (ej: Grasas / 5).
+          </li>
+          <li>
+            Los valores de las porciones de 10g, 15g y 7g son referencias visuales para la interpretación.
+          </li>
+        </ul>
+      </div>
+
       {/* Mensaje introductorio inteligente */}
       {isGain ? (
         <p className="text-sm text-muted-foreground mb-4">
           Estás en modo <strong>ganar masa</strong>. Los valores introducidos
           son por <strong>100g</strong> del producto y se convierten usando una
-          porción estándar de <strong>28g</strong>.
+          porción calculada de <strong>{portionToUse.toFixed(1)}g</strong>. 
+        </p>
+      ) : isMaintain ? (
+        <p className="text-sm text-muted-foreground mb-4">
+          Estás en modo <strong>mantener peso</strong>. El cálculo se basa en una distribución de macronutrientes balanceada.
         </p>
       ) : (
         <p className="text-sm text-muted-foreground mb-4">
@@ -88,7 +116,7 @@ export const ExchangeCalculator = ({
       {/* Advertencia solo en modo ganar */}
       {isGain && (total < 0.9 || total > 1.1) && (
         <p className="text-sm text-destructive text-center mt-2">
-          ⚠️ Para ganar masa con porciones de 28g, el total debe ser cercano a
+          ⚠️ Para ganar masa con porciones de {portionToUse.toFixed(1)}g, el total debe ser cercano a
           1.00
         </p>
       )}
@@ -123,7 +151,7 @@ export const ExchangeCalculator = ({
         <p className="text-sm text-muted-foreground mt-4">
           Estas porciones serán utilizadas para generar tus menús según tu
           objetivo:
-          <strong> {isGain ? "ganar masa muscular" : "perder grasa"}</strong>.
+          <strong> {isGain ? "ganar masa muscular" : isMaintain ? "mantener peso" : "perder grasa"}</strong>.
         </p>
       </div>
     </Card>

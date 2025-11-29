@@ -1,3 +1,4 @@
+// src/types/exchange-calculator.types.ts (CORREGIDO)
 
 export type ObjectiveType = "perder" | "ganar" | "mantener"; 
 
@@ -6,4 +7,5 @@ export interface ExchangeCalculatorProps {
   carbs: number;
   proteins: number;
   objective: ObjectiveType; 
+  dynamicPortion: number; 
 }
