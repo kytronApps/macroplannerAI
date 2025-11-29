@@ -9,23 +9,22 @@ import { PreferencesForm } from "@/components/PreferencesForm";
 import { ExchangeCalculator } from "@/components/ExchangeCalculator";
 import { MenuDisplay } from "@/components/MenuDisplay";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, ChefHat, Sparkles, FileText } from "lucide-react"; 
+import { Loader2, ChefHat, Sparkles, FileText } from "lucide-react";
 import { ObjectiveSelector } from "@/components/ObjectiveSelector";
+import { generateMealPlanPDF } from "@/utils/generatePdf";
 
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
-
-
 
 const Index = () => {
   // 🔴 REMOVIDO: const [calories, setCalories] = useState("");
   const [fats, setFats] = useState("");
   const [carbs, setCarbs] = useState("");
   const [proteins, setProteins] = useState("");
-  
-  const [height, setHeight] = useState(""); 
-  const [weight, setWeight] = useState(""); 
-  
+
+  const [height, setHeight] = useState("");
+  const [weight, setWeight] = useState("");
+
   const [selectedMeals, setSelectedMeals] = useState<string[]>([
     "Desayuno",
     "Comida",
@@ -55,13 +54,14 @@ const Index = () => {
   const carbsInKcal = parseFloat(carbs);
   const proteinsInKcal = parseFloat(proteins);
 
-  const totalKcal = (isNaN(fatsInKcal) ? 0 : fatsInKcal) +
-                   (isNaN(carbsInKcal) ? 0 : carbsInKcal) +
-                   (isNaN(proteinsInKcal) ? 0 : proteinsInKcal);
+  const totalKcal =
+    (isNaN(fatsInKcal) ? 0 : fatsInKcal) +
+    (isNaN(carbsInKcal) ? 0 : carbsInKcal) +
+    (isNaN(proteinsInKcal) ? 0 : proteinsInKcal);
 
   const handleGenerateMealPlan = async () => {
     // 🔴 CONDICIONAL CORREGIDO: Ya no chequea 'calories', solo los macros
-    if (!fats || !carbs || !proteins) { 
+    if (!fats || !carbs || !proteins) {
       toast({
         title: "Campos incompletos",
         description: "Por favor completa todos los valores nutricionales",
@@ -128,83 +128,33 @@ const Index = () => {
     }
   };
 
-  // FUNCIÓN PARA DESCARGAR PDF (AÑADIDA)
-  const handleDownloadPDF = async () => {
-    // 1. Identificar el contenedor del menú por su ID
-    const input = document.getElementById("meal-plan-content");
+  const handleDownloadPDF = () => {
+    if (!mealPlan) return;
 
-    if (!input) {
-      toast({
-        title: "Error de captura",
-        description:
-          "No se pudo encontrar el contenido del menú para descargar.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // 2. Convertir el HTML a Canvas (Imagen)
-    const canvas = await html2canvas(input, {
-      scale: 2, // Mejora la calidad de la imagen
-      logging: false,
-      useCORS: true,
-    });
-
-    const imgData = canvas.toDataURL("image/png");
-
-    // 3. Crear el documento PDF (Formato A4)
-    const pdf = new jsPDF("p", "mm", "a4");
-    const imgWidth = 210; // Ancho A4 en mm
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-    let position = 0;
-
-    // Lógica para manejar contenido multi-página si el menú es muy largo
-    if (imgHeight > 297) {
-      // 297 es la altura A4 en mm
-      let heightLeft = imgHeight;
-
-      while (heightLeft > 0) {
-        position = heightLeft - imgHeight;
-        pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-        heightLeft -= 297;
-
-        if (heightLeft > -1) {
-          pdf.addPage();
-        }
-      }
-    } else {
-      // Contenido cabe en una sola página
-      pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight);
-    }
-
-    // 4. Descargar el archivo
-    pdf.save("NutriPlan_Personalizado.pdf");
-
-    toast({
-      title: "Descarga completada",
-      description: "Tu plan de comidas ha sido descargado como PDF.",
-    });
+    generateMealPlanPDF(mealPlan);
   };
 
   // 🟢 LÓGICA DE CÁLCULO PARA LA PORCIÓN DINÁMICA
   const numericWeight = parseFloat(weight);
   const basePortion = 28;
-  let dynamicPortion = basePortion; 
+  let dynamicPortion = basePortion;
 
   if (!isNaN(numericWeight) && numericWeight > 0) {
-      const baseWeight = 70;
-      if (numericWeight > baseWeight) {
-          const weightDiff = numericWeight - baseWeight;
-          dynamicPortion = basePortion + (weightDiff * 0.5); 
-          dynamicPortion = Math.round(dynamicPortion * 10) / 10; 
-      }
+    const baseWeight = 70;
+    if (numericWeight > baseWeight) {
+      const weightDiff = numericWeight - baseWeight;
+      dynamicPortion = basePortion + weightDiff * 0.5;
+      dynamicPortion = Math.round(dynamicPortion * 10) / 10;
+    }
   }
 
   // 🔴 CONVERSIÓN CRÍTICA: Kcal de entrada -> Gramos para la calculadora (Fórmulas: Fat/9, Carbs/4, Protein/4)
-  const fatsInGrams = isNaN(fatsInKcal) || fatsInKcal === 0 ? 0 : fatsInKcal / 9; 
-  const carbsInGrams = isNaN(carbsInKcal) || carbsInKcal === 0 ? 0 : carbsInKcal / 4;
-  const proteinsInGrams = isNaN(proteinsInKcal) || proteinsInKcal === 0 ? 0 : proteinsInKcal / 4;
-
+  const fatsInGrams =
+    isNaN(fatsInKcal) || fatsInKcal === 0 ? 0 : fatsInKcal / 9;
+  const carbsInGrams =
+    isNaN(carbsInKcal) || carbsInKcal === 0 ? 0 : carbsInKcal / 4;
+  const proteinsInGrams =
+    isNaN(proteinsInKcal) || proteinsInKcal === 0 ? 0 : proteinsInKcal / 4;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-secondary/5">
@@ -246,7 +196,7 @@ const Index = () => {
               </div>
               <h2 className="text-2xl font-bold text-foreground">
                 Valores Nutricionales y Biométricos
-              </h2> 
+              </h2>
             </div>
 
             <NutritionalInput
@@ -266,17 +216,20 @@ const Index = () => {
               onWeightChange={setWeight}
             />
 
-            {totalKcal > 0 && fats && carbs && proteins && ( // Condicional actualizado
-              <div className="mt-6">
-                <ExchangeCalculator
-                  fats={fatsInGrams} // 🔴 PASAMOS GRAMOS CONVERTIDOS
-                  carbs={carbsInGrams} // 🔴 PASAMOS GRAMOS CONVERTIDOS
-                  proteins={proteinsInGrams} // 🔴 PASAMOS GRAMOS CONVERTIDOS
-                  objective={objective}
-                  dynamicPortion={dynamicPortion}
-                />
-              </div>
-            )}
+            {totalKcal > 0 &&
+              fats &&
+              carbs &&
+              proteins && ( // Condicional actualizado
+                <div className="mt-6">
+                  <ExchangeCalculator
+                    fats={fatsInGrams} // 🔴 PASAMOS GRAMOS CONVERTIDOS
+                    carbs={carbsInGrams} // 🔴 PASAMOS GRAMOS CONVERTIDOS
+                    proteins={proteinsInGrams} // 🔴 PASAMOS GRAMOS CONVERTIDOS
+                    objective={objective}
+                    dynamicPortion={dynamicPortion}
+                  />
+                </div>
+              )}
           </Card>
 
           {/* --- SECCIÓN 2 --- */}
