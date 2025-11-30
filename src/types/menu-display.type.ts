@@ -32,10 +32,16 @@ export interface ComidasPorMenu {
 // ========================================================
 // 🟢 Menú generado
 // ========================================================
+export interface RecetaPostre {
+  nombre: string;
+  ingredientes: Ingrediente[];
+  preparacion: string[];
+}
+
 export interface GeneratedMenu {
   nombre: string;
   comidas: ComidasPorMenu;
-  postre: string | null;
+  postre: RecetaPostre | null; 
 }
 
 // ========================================================

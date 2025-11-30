@@ -1,6 +1,6 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import type { MealPlanResponse, GeneratedMenu } from "@/types/menu-display.type";
+import type { MealPlanResponse, GeneratedMenu, Receta } from "@/types/menu-display.type";
 
 export function generateMealPlanPDF(mealPlan: MealPlanResponse) {
   const pdf = new jsPDF("p", "mm", "a4");
@@ -25,10 +25,10 @@ export function generateMealPlanPDF(mealPlan: MealPlanResponse) {
     { align: "center" }
   );
 
-  pdf.addPage(); // Página nueva para los menús
+  pdf.addPage(); // Página nueva
 
   // =========================
-  // 📄 MENÚS (uno por página)
+  // 📄 MENÚS
   // =========================
   mealPlan.menus.forEach((menu: GeneratedMenu, index: number) => {
     if (index !== 0) pdf.addPage();
@@ -36,50 +36,66 @@ export function generateMealPlanPDF(mealPlan: MealPlanResponse) {
     pdf.setFontSize(18);
     pdf.text(menu.nombre, 15, 20);
 
-    // Convertir comidas a filas de tabla
-    let rows: any[] = [];
-
-    Object.entries(menu.comidas).forEach(([comida, ingredientes]) => {
-      if (ingredientes.length > 0) {
-        ingredientes.forEach((item) => {
-          rows.push([
-            comida,
-            item.ingrediente,
-            item.cantidad
-          ]);
-        });
-      } else {
-        rows.push([comida, "—", "—"]);
-      }
-    });
-
-    autoTable(pdf, {
-      startY: 30,
-      head: [["Comida", "Ingrediente", "Cantidad"]],
-      body: rows,
-      theme: "grid",
-      styles: {
-        fontSize: 11,
-        cellPadding: 2,
-      },
-      headStyles: {
-        fillColor: [52, 152, 219], // Azul profesional
-        textColor: 255,
-        halign: "center",
-      },
-      bodyStyles: {
-        halign: "center",
-      },
-    });
-
-    // Postre
-    if (menu.postre && menu.postre !== "null") {
-      const y = (pdf as any).lastAutoTable.finalY + 10;
+    // ======================
+    // TABLA DE COMIDAS
+    // ======================
+    Object.entries(menu.comidas).forEach(([nombreComida, receta]: [string, Receta]) => {
       pdf.setFontSize(14);
-      pdf.text("🍰 Postre", 15, y);
+      pdf.text(`${nombreComida}: ${receta.nombre}`, 15, pdf.lastAutoTable ? (pdf as any).lastAutoTable.finalY + 15 : 30);
 
+      // TABLA de ingredientes
+      autoTable(pdf, {
+        startY: (pdf as any).lastAutoTable ? (pdf as any).lastAutoTable.finalY + 22 : 40,
+        head: [["Ingrediente", "Cantidad"]],
+        body: receta.ingredientes.map((i) => [i.ingrediente, i.cantidad]),
+        theme: "grid",
+        styles: { fontSize: 11 },
+        headStyles: { fillColor: [52, 152, 219], textColor: 255 },
+      });
+
+      // PREPARACIÓN
+      const refY = (pdf as any).lastAutoTable.finalY + 5;
       pdf.setFontSize(12);
-      pdf.text(menu.postre, 15, y + 8);
+      pdf.text("Preparación:", 15, refY);
+
+      let stepY = refY + 6;
+      receta.preparacion.forEach((paso, idx) => {
+        pdf.text(`• ${paso}`, 20, stepY);
+        stepY += 6;
+      });
+
+      (pdf as any)._lastY = stepY;
+    });
+
+    // ======================
+    // POSTRE COMO RECETA
+    // ======================
+    if (menu.postre) {
+      const y = (pdf as any)._lastY + 10;
+
+      pdf.setFontSize(16);
+      pdf.text(`🍰 Postre: ${menu.postre.nombre}`, 15, y);
+
+      // Ingredientes del postre
+      autoTable(pdf, {
+        startY: y + 8,
+        head: [["Ingrediente", "Cantidad"]],
+        body: menu.postre.ingredientes.map((i) => [i.ingrediente, i.cantidad]),
+        theme: "grid",
+        styles: { fontSize: 11 },
+        headStyles: { fillColor: [255, 178, 102], textColor: 0 },
+      });
+
+      // Preparación del postre
+      const prepY = (pdf as any).lastAutoTable.finalY + 6;
+      pdf.setFontSize(12);
+      pdf.text("Preparación:", 15, prepY);
+
+      let lineY = prepY + 6;
+      menu.postre.preparacion.forEach((p) => {
+        pdf.text(`• ${p}`, 20, lineY);
+        lineY += 6;
+      });
     }
   });
 

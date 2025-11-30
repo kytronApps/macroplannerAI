@@ -16,7 +16,6 @@ export const MenuDisplay = ({ mealPlan }: MenuDisplayProps) => {
         </p>
       </div>
 
-      {/* SI HAY MENÚS */}
       {menus.length > 0 ? (
         menus.map((menu, menuIndex) => (
           <Card
@@ -27,7 +26,7 @@ export const MenuDisplay = ({ mealPlan }: MenuDisplayProps) => {
               {menu.nombre}
             </h3>
 
-            {/* CADA COMIDA */}
+            {/* COMIDAS */}
             {Object.entries(menu.comidas).map(([nombreComida, data]) => (
               <div
                 key={nombreComida}
@@ -42,29 +41,24 @@ export const MenuDisplay = ({ mealPlan }: MenuDisplayProps) => {
 
                 {/* Nombre de la receta */}
                 <p className="text-lg font-semibold text-gray-800 mb-3">
-                  {data?.nombre || "Receta"}
+                  {data?.nombre}
                 </p>
 
                 {/* INGREDIENTES */}
                 <div className="mb-4">
                   <div className="flex items-center gap-2 mb-2">
                     <UtensilsCrossed className="w-4 h-4 text-primary" />
-                    <p className="text-sm font-medium text-gray-700">
-                      Ingredientes:
-                    </p>
+                    <p className="text-sm font-medium text-gray-700">Ingredientes:</p>
                   </div>
 
-                  {Array.isArray(data?.ingredientes) &&
-                  data.ingredientes.length > 0 ? (
+                  {data?.ingredientes?.length > 0 ? (
                     <ul className="list-none space-y-1 ml-1">
                       {data.ingredientes.map((item, i) => (
                         <li
                           key={i}
                           className="flex justify-between border-b border-dashed border-gray-300 dark:border-gray-700 pb-1 last:border-b-0 last:pb-0"
                         >
-                          <span className="text-sm text-foreground">
-                            {item.ingrediente}
-                          </span>
+                          <span className="text-sm">{item.ingrediente}</span>
                           <span className="text-sm font-semibold text-primary">
                             {item.cantidad}
                           </span>
@@ -72,9 +66,7 @@ export const MenuDisplay = ({ mealPlan }: MenuDisplayProps) => {
                       ))}
                     </ul>
                   ) : (
-                    <p className="text-sm text-muted-foreground">
-                      Sin ingredientes disponibles.
-                    </p>
+                    <p className="text-sm text-muted-foreground">Sin ingredientes.</p>
                   )}
                 </div>
 
@@ -82,13 +74,10 @@ export const MenuDisplay = ({ mealPlan }: MenuDisplayProps) => {
                 <div>
                   <div className="flex items-center gap-2 mb-2">
                     <ListChecks className="w-4 h-4 text-primary" />
-                    <p className="text-sm font-medium text-gray-700">
-                      Preparación:
-                    </p>
+                    <p className="text-sm font-medium text-gray-700">Preparación:</p>
                   </div>
 
-                  {Array.isArray(data?.preparacion) &&
-                  data.preparacion.length > 0 ? (
+                  {data?.preparacion?.length > 0 ? (
                     <ol className="list-decimal ml-6 space-y-1 text-sm text-gray-700">
                       {data.preparacion.map((paso, i) => (
                         <li key={i}>{paso}</li>
@@ -103,22 +92,54 @@ export const MenuDisplay = ({ mealPlan }: MenuDisplayProps) => {
               </div>
             ))}
 
-            {/* POSTRE */}
-            {menu.postre && menu.postre !== "null" && (
+            {/* POSTRE COMO RECETA COMPLETA */}
+            {menu.postre && (
               <div className="mt-4 p-4 border rounded-lg bg-yellow-50/70 dark:bg-yellow-900/20">
-                <h4 className="text-xl font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                  🍰 Postre
+                <h4 className="text-xl font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  🍰 Postre: {menu.postre.nombre}
                 </h4>
-                <p className="text-sm text-gray-700">{menu.postre}</p>
+
+                {/* Ingredientes del postre */}
+                <div className="mb-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <UtensilsCrossed className="w-4 h-4 text-primary" />
+                    <p className="text-sm font-medium text-gray-700">Ingredientes:</p>
+                  </div>
+
+                  <ul className="list-none space-y-1 ml-1">
+                    {menu.postre.ingredientes.map((item, i) => (
+                      <li
+                        key={i}
+                        className="flex justify-between border-b border-dashed border-gray-300 pb-1 last:border-b-0"
+                      >
+                        <span className="text-sm">{item.ingrediente}</span>
+                        <span className="text-sm font-semibold text-primary">
+                          {item.cantidad}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Preparación del postre */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <ListChecks className="w-4 h-4 text-primary" />
+                    <p className="text-sm font-medium text-gray-700">Preparación:</p>
+                  </div>
+
+                  <ol className="list-decimal ml-6 space-y-1 text-sm text-gray-700">
+                    {menu.postre.preparacion.map((paso, i) => (
+                      <li key={i}>{paso}</li>
+                    ))}
+                  </ol>
+                </div>
               </div>
             )}
           </Card>
         ))
       ) : (
-        // FALLBACK CUANDO NO HAY MENÚS
-        <p className="text-center text-muted-foreground">
-          No se generaron menús.
-        </p>
+        <p className="text-center text-muted-foreground">No se generaron menús.</p>
       )}
     </div>
   );
