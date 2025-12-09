@@ -313,7 +313,8 @@ const Index = () => {
 
               {/* Contenido a capturar por html2canvas */}
               <div id="meal-plan-content">
-                <MenuDisplay mealPlan={mealPlan} />
+                <MenuDisplay mealPlan={mealPlan} objective={objective} />
+
               </div>
             </div>
           )}

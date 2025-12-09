@@ -57,4 +57,6 @@ export interface MealPlanResponse {
 // ========================================================
 export interface MenuDisplayProps {
   mealPlan: MealPlanResponse;
+  objective: "perder" | "ganar" | "mantener";
+
 }

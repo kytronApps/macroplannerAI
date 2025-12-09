@@ -9,7 +9,15 @@
 	"compatibility_date": "2025-11-26",
 	"observability": {
 		"enabled": true
-	}
+	},
+	"d1_databases": [
+		{
+			"binding": "nutriplan_db",
+			"database_name": "nutriplan-db",
+			"database_id": "098884d1-5d02-4d5c-a5e3-19a9c24f48eb",
+			"remote": true
+		}
+	]
 	/**
 	 * Smart Placement
 	 * Docs: https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
