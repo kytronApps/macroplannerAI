@@ -6,6 +6,6 @@ export interface FeedbackPayload {
 	receta_nombre: string;
 	ingredientes: Ingrediente[];
 	preparacion: string[];
-	voto: 'like' | 'dislike';
+	vote: 'like' | 'dislike';
 	objetivo: 'perder' | 'ganar' | 'mantener';
 }

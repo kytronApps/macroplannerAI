@@ -119,10 +119,18 @@ const Index = () => {
         normalized = { menus: data };
       } else if (!data || typeof data !== "object") {
         normalized = { menus: [] };
-      } else if (!Array.isArray(data.menus)) {
-        // Si viene un objeto con otra forma, intentamos encontrar un campo razonable
-        // o fallback a empty array
-        normalized = { menus: data.menus ?? [] };
+      } else {
+        // Acepta variaciones comunes que puede devolver el modelo (menu/plan en vez de menus)
+        const candidateMenus =
+          Array.isArray(data.menus)
+            ? data.menus
+            : Array.isArray((data as any).menu)
+              ? (data as any).menu
+              : Array.isArray((data as any).plan)
+                ? (data as any).plan
+                : [];
+
+        normalized = { menus: candidateMenus };
       }
 
       setMealPlan(normalized);

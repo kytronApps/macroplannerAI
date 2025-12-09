@@ -32,7 +32,11 @@ import { regenerarComida } from "@/utils/regenerarComida";
 import { regenerarMenu } from "@/utils/regenerarMenu";
 
 import type { LucideIcon } from "lucide-react";
-import type { MenuDisplayProps, Receta } from "@/types/menu-display.type";
+import type {
+  GeneratedMenu,
+  MenuDisplayProps,
+  Receta,
+} from "@/types/menu-display.type";
 
 type ModalState = {
   isOpen: boolean;
@@ -44,17 +48,31 @@ type ModalState = {
 
 export const MenuDisplay = ({ mealPlan, objective }: MenuDisplayProps) => {
   console.log("[MenuDisplay] mealPlan prop:", mealPlan);
+
+  const getRawMenus = (plan: unknown): unknown => {
+    if (!plan || typeof plan !== "object") return [];
+    const p = plan as Record<string, unknown>;
+    return (
+      p.menus ??
+      p.menu ??
+      p.plan ??
+      [] // fallback vacío
+    );
+  };
+
   const [feedbackState, setFeedbackState] = useState<
     Record<string, "like" | "dislike" | null>
   >({});
 
   const [regenerating, setRegenerating] = useState<Record<string, boolean>>({});
-  const [menusState, setMenusState] = useState(mealPlan?.menus ?? []);
+  const [menusState, setMenusState] = useState<GeneratedMenu[]>(() =>
+    normalizeMenus(getRawMenus(mealPlan))
+  );
 
   // Sincroniza el estado interno con el prop cada vez que cambian los menús
   useEffect(() => {
-    setMenusState(mealPlan?.menus ?? []);
-  }, [mealPlan?.menus]);
+    setMenusState(normalizeMenus(getRawMenus(mealPlan)));
+  }, [mealPlan]);
 
   const [modalState, setModalState] = useState<ModalState>({
     isOpen: false,
@@ -64,25 +82,21 @@ export const MenuDisplay = ({ mealPlan, objective }: MenuDisplayProps) => {
     isLoading: false,
   });
 
-  const menus = Array.isArray(menusState) ? menusState : [];
+  // const menus = Array.isArray(menusState) ? menusState : [];
 
-  // Si la respuesta no tiene la forma esperada, mostramos un aviso en UI
-  if (!mealPlan || !Array.isArray(mealPlan.menus)) {
-    console.error("MenuDisplay: mealPlan inválido:", mealPlan);
-    return (
-      <div className="max-w-5xl mx-auto p-4">
-        <div className="text-center p-8 bg-yellow-50 rounded-lg border border-yellow-200">
-          <h3 className="text-lg font-semibold">
-            No se pudieron cargar los menús
-          </h3>
-          <p className="text-sm text-gray-600">
-            Hubo un problema con la respuesta del servidor. Intenta generar el
-            plan de nuevo.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  // Si la respuesta viene vacía, mostramos aviso pero sin bloquear el render
+  if (!mealPlan) {
+  console.error("MenuDisplay: mealPlan inválido:", mealPlan);
+  return null;
+}
+
+const menus = Array.isArray(menusState) ? menusState : [];
+
+// ⚠️ NO BLOQUEAR el render
+if (menus.length === 0) {
+  console.warn("MenuDisplay: menús vacíos en este momento, renderizando espacio vacío mientras llegan…");
+}
+
 
   const iconoComida: Record<string, LucideIcon> = {
     Desayuno: Coffee,
@@ -92,7 +106,7 @@ export const MenuDisplay = ({ mealPlan, objective }: MenuDisplayProps) => {
   };
 
   // Normaliza una receta que pueda venir con pequeñas variaciones
-  const normalizeReceta = (r: unknown) => {
+  function normalizeReceta(r: unknown): Receta | null {
     if (!r || typeof r !== "object") return null;
 
     const rr = r as Record<string, unknown>;
@@ -139,7 +153,93 @@ export const MenuDisplay = ({ mealPlan, objective }: MenuDisplayProps) => {
       ingredientes,
       preparacion,
     } as Receta;
-  };
+  }
+
+  function normalizeComidas(menu: Record<string, unknown>) {
+    const rawComidas =
+      (menu.comidas as unknown) ??
+      (menu.Comidas as unknown) ??
+      (menu.meals as unknown) ??
+      (menu.platos as unknown) ??
+      null;
+
+    if (rawComidas && typeof rawComidas === "object") {
+      if (Array.isArray(rawComidas)) {
+        return rawComidas.reduce(
+          (acc, item, idx) => {
+            if (!item || typeof item !== "object") return acc;
+            const itemObj = item as Record<string, unknown>;
+            const nombre =
+              (itemObj.comida as string) ||
+              (itemObj.nombre as string) ||
+              `Comida ${idx + 1}`;
+            const receta = (itemObj.receta as unknown) ?? itemObj;
+            acc[nombre] = receta;
+            return acc;
+          },
+          {} as Record<string, unknown>
+        );
+      }
+      return rawComidas as Record<string, unknown>;
+    }
+
+    // Algunos modelos devuelven las comidas como claves sueltas en el menú
+    const knownKeys = [
+      "Desayuno",
+      "Comida",
+      "Almuerzo",
+      "Merienda",
+      "Cena",
+      "Snack",
+      "Colacion",
+      "Colación",
+      "Brunch",
+    ];
+
+    return knownKeys.reduce((acc, key) => {
+      const value = (menu as Record<string, unknown>)[key];
+      if (value) {
+        const normalizedKey = key === "Almuerzo" ? "Comida" : key;
+        acc[normalizedKey] = value;
+      }
+      return acc;
+    }, {} as Record<string, unknown>);
+  }
+
+  function normalizeMenus(rawMenus: unknown): GeneratedMenu[] {
+    if (!Array.isArray(rawMenus)) {
+      if (rawMenus && typeof rawMenus === "object") {
+        return normalizeMenus([rawMenus]);
+      }
+      return [];
+    }
+
+    return rawMenus.map((menuRaw, idx) => {
+      const menu = (menuRaw ?? {}) as Record<string, unknown>;
+      const comidasRaw = normalizeComidas(menu);
+
+      const comidas: Record<string, Receta> = {};
+      Object.entries(comidasRaw).forEach(([nombre, recetaRaw]) => {
+        const receta = normalizeReceta(recetaRaw);
+        if (receta) comidas[nombre] = receta;
+      });
+
+      const postre = normalizeReceta(
+        (menu.postre as unknown) ??
+          (menu.Postre as unknown) ??
+          (menu.postres as unknown)
+      );
+
+      return {
+        nombre:
+          (menu.nombre as string) ||
+          (menu.titulo as string) ||
+          `Menú ${idx + 1}`,
+        comidas,
+        postre: postre ?? null,
+      };
+    });
+  }
 
   // ======================================================
   // 🎨 CONFIGURACIÓN DEL MODAL SEGÚN TIPO
@@ -215,6 +315,13 @@ export const MenuDisplay = ({ mealPlan, objective }: MenuDisplayProps) => {
     }));
 
     // Enviar feedback
+    console.log("[handleFeedback] Enviando datos:", {
+      menuNombre,
+      comidaNombre,
+      receta,
+      tipo,
+      objective,
+    });
     await enviarFeedback(menuNombre, comidaNombre, receta, tipo, objective);
 
     // Actualizar modal a completado
@@ -241,12 +348,20 @@ export const MenuDisplay = ({ mealPlan, objective }: MenuDisplayProps) => {
     setRegenerating((prev) => ({ ...prev, [key]: true }));
 
     try {
+      console.log("[handleRegenerar] Enviando datos:", {
+        objective,
+        comidaNombre,
+        recetaActual,
+        contextoComidas: Object.keys(menusState[menuIndex]?.comidas || {}),
+      });
       const nuevo = await regenerarComida(
         objective,
         comidaNombre,
         recetaActual,
         Object.keys(menusState[menuIndex]?.comidas || {})
       );
+
+      const recetaNormalizada = normalizeReceta(nuevo.receta) ?? recetaActual;
 
       setMenusState((prev) => {
         const copy = [...prev];
@@ -255,7 +370,7 @@ export const MenuDisplay = ({ mealPlan, objective }: MenuDisplayProps) => {
           ...copy[menuIndex],
           comidas: {
             ...(copy[menuIndex].comidas || {}),
-            [comidaNombre]: nuevo.receta,
+            [comidaNombre]: recetaNormalizada,
           },
         };
         return copy;
@@ -301,15 +416,26 @@ export const MenuDisplay = ({ mealPlan, objective }: MenuDisplayProps) => {
     setRegenerating((prev) => ({ ...prev, [`menu-${menuIndex}`]: true }));
 
     try {
+      console.log("[handleRegenerarMenu] Enviando datos:", {
+        objective,
+        contextoComidas: Object.keys(menusState[menuIndex]?.comidas || {}),
+      });
       const nuevoMenu = await regenerarMenu(
         objective,
         Object.keys(menusState[menuIndex]?.comidas || {})
       );
 
+      const menuNormalizado = normalizeMenus(
+        (nuevoMenu.menus as unknown) ??
+          (nuevoMenu.menu as unknown) ??
+          (nuevoMenu.plan as unknown) ??
+          []
+      )[0];
+
       setMenusState((prev) => {
         const copy = [...prev];
-        if (!copy[menuIndex]) return prev;
-        copy[menuIndex] = nuevoMenu.menus[0];
+        if (!copy[menuIndex] || !menuNormalizado) return prev;
+        copy[menuIndex] = menuNormalizado;
         return copy;
       });
 
@@ -342,20 +468,25 @@ export const MenuDisplay = ({ mealPlan, objective }: MenuDisplayProps) => {
   // ======================================================
   // 🟢 RENDER
   // ======================================================
-  return (
-    <>
-      <div className="max-w-5xl mx-auto p-4 space-y-8">
-        <div className="text-center space-y-2 mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center justify-center gap-2">
-            <Sparkles className="w-8 h-8 text-purple-600" />
-            Tu Plan Nutricional
-          </h1>
-          <p className="text-gray-600">
-            Menús personalizados para alcanzar tus objetivos
-          </p>
-        </div>
+return (
+  <>
+    <div className="max-w-5xl mx-auto p-4 space-y-8">
+      {/* CABECERA */}
+      <div className="text-center space-y-2 mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 flex items-center justify-center gap-2">
+          <Sparkles className="w-8 h-8 text-purple-600" />
+          Tu Plan Nutricional
+        </h1>
+        <p className="text-gray-600">
+          Menús personalizados para alcanzar tus objetivos
+        </p>
+      </div>
 
-        {menus.map((menu, menuIndex) => (
+      
+      {menus.map((menu, menuIndex) => {
+        const comidasEntries = Object.entries(menu.comidas || {});
+
+        return (
           <Card
             key={menuIndex}
             className="overflow-hidden border-2 border-gray-100 shadow-lg hover:shadow-xl transition-shadow duration-300"
@@ -365,15 +496,27 @@ export const MenuDisplay = ({ mealPlan, objective }: MenuDisplayProps) => {
             </div>
 
             <div className="p-6 space-y-6">
-              {Object.entries(menu.comidas || {}).map(
+              {/* Si no hay comidas */}
+              {comidasEntries.length === 0 && (
+                <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-yellow-900">
+                  Este menú llegó sin recetas. Pulsa "Regenerar menú completo"
+                  para obtener opciones nuevas.
+                </div>
+              )}
+
+              {/* LISTA DE COMIDAS */}
+              {comidasEntries.map(
                 ([nombreComida, receta]: [string, Receta | undefined]) => {
                   if (!receta) return null;
                   const recetaSafe = normalizeReceta(receta);
                   if (!recetaSafe) return null;
+
                   const IconoComida =
                     iconoComida[nombreComida] || UtensilsCrossed;
+
                   const feedbackKey = `${menu.nombre}-${nombreComida}`;
                   const feedback = feedbackState[feedbackKey];
+
                   const regenKey = `${menuIndex}-${nombreComida}`;
                   const isRegenerating = regenerating[regenKey];
 
@@ -382,6 +525,7 @@ export const MenuDisplay = ({ mealPlan, objective }: MenuDisplayProps) => {
                       key={nombreComida}
                       className="border border-gray-200 hover:border-purple-300 transition-colors duration-200 overflow-hidden"
                     >
+                      {/* TÍTULO DE LA COMIDA */}
                       <div className="bg-gradient-to-r from-gray-50 to-white p-4 border-b">
                         <div className="flex items-center gap-3">
                           <div className="bg-purple-100 p-2 rounded-lg">
@@ -398,7 +542,9 @@ export const MenuDisplay = ({ mealPlan, objective }: MenuDisplayProps) => {
                         </div>
                       </div>
 
+                      {/* CONTENIDO */}
                       <div className="p-5 space-y-4">
+                        {/* Ingredientes */}
                         <div>
                           <div className="flex items-center gap-2 text-purple-700">
                             <UtensilsCrossed className="w-5 h-5" />
@@ -423,6 +569,7 @@ export const MenuDisplay = ({ mealPlan, objective }: MenuDisplayProps) => {
                           </div>
                         </div>
 
+                        {/* Preparación */}
                         <div>
                           <div className="flex items-center gap-2 text-blue-700">
                             <ListChecks className="w-5 h-5" />
@@ -444,7 +591,9 @@ export const MenuDisplay = ({ mealPlan, objective }: MenuDisplayProps) => {
                           </div>
                         </div>
 
+                        {/* BOTONES */}
                         <div className="flex flex-wrap gap-2 pt-2">
+                          {/* LIKE */}
                           <button
                             className={`flex-1 min-w-[120px] px-4 py-2.5 rounded-lg font-medium text-sm transition-all duration-200 flex items-center justify-center gap-2 ${
                               feedback === "like"
@@ -455,7 +604,7 @@ export const MenuDisplay = ({ mealPlan, objective }: MenuDisplayProps) => {
                               handleFeedback(
                                 menu.nombre,
                                 nombreComida,
-                                receta,
+                                recetaSafe,
                                 "like"
                               )
                             }
@@ -468,6 +617,7 @@ export const MenuDisplay = ({ mealPlan, objective }: MenuDisplayProps) => {
                             Me gustó
                           </button>
 
+                          {/* DISLIKE */}
                           <button
                             className={`flex-1 min-w-[120px] px-4 py-2.5 rounded-lg font-medium text-sm transition-all duration-200 flex items-center justify-center gap-2 ${
                               feedback === "dislike"
@@ -478,7 +628,7 @@ export const MenuDisplay = ({ mealPlan, objective }: MenuDisplayProps) => {
                               handleFeedback(
                                 menu.nombre,
                                 nombreComida,
-                                receta,
+                                recetaSafe,
                                 "dislike"
                               )
                             }
@@ -491,10 +641,15 @@ export const MenuDisplay = ({ mealPlan, objective }: MenuDisplayProps) => {
                             No me gustó
                           </button>
 
+                          {/* REGENERAR COMIDA */}
                           <button
                             className="flex-1 min-w-[120px] px-4 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg font-medium text-sm hover:from-blue-700 hover:to-blue-800 transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-lg disabled:opacity-50"
                             onClick={() =>
-                              handleRegenerar(menuIndex, nombreComida, receta)
+                              handleRegenerar(
+                                menuIndex,
+                                nombreComida,
+                                recetaSafe
+                              )
                             }
                             disabled={isRegenerating}
                           >
@@ -512,6 +667,7 @@ export const MenuDisplay = ({ mealPlan, objective }: MenuDisplayProps) => {
                 }
               )}
 
+              {/* REGENERAR MENÚ COMPLETO */}
               <div className="flex justify-end pt-4">
                 <button
                   className="px-6 py-3 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg font-semibold hover:from-purple-700 hover:to-purple-800 transition-all duration-200 flex items-center gap-2 shadow-md hover:shadow-lg disabled:opacity-50"
@@ -530,46 +686,45 @@ export const MenuDisplay = ({ mealPlan, objective }: MenuDisplayProps) => {
               </div>
             </div>
           </Card>
-        ))}
-      </div>
+        );
+      })}
+    </div>
 
-      {/* MODAL MEJORADO */}
-      <AlertDialog
-        open={modalState.isOpen}
-        onOpenChange={(open) =>
-          setModalState((prev) => ({ ...prev, isOpen: open }))
-        }
-      >
-        <AlertDialogContent className="sm:max-w-md">
-          <AlertDialogHeader>
-            <div
-              className={`mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full ${config.bgColor}`}
-            >
-              {modalState.isLoading ? (
-                <Loader2
-                  className={`h-8 w-8 animate-spin ${config.iconColor}`}
-                />
-              ) : (
-                <ModalIcon className={`h-8 w-8 ${config.iconColor}`} />
-              )}
-            </div>
-            <AlertDialogTitle className="text-center text-xl">
-              {modalState.title}
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-center">
-              {modalState.description}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="sm:justify-center">
-            <AlertDialogAction
-              className={`${config.buttonColor} text-white px-8`}
-              disabled={modalState.isLoading}
-            >
-              {modalState.isLoading ? "Procesando..." : "Aceptar"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
-  );
+    {/* MODAL */}
+    <AlertDialog
+      open={modalState.isOpen}
+      onOpenChange={(open) =>
+        setModalState((prev) => ({ ...prev, isOpen: open }))
+      }
+    >
+      <AlertDialogContent className="sm:max-w-md">
+        <AlertDialogHeader>
+          <div
+            className={`mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full ${config.bgColor}`}
+          >
+            {modalState.isLoading ? (
+              <Loader2 className={`h-8 w-8 animate-spin ${config.iconColor}`} />
+            ) : (
+              <ModalIcon className={`h-8 w-8 ${config.iconColor}`} />
+            )}
+          </div>
+          <AlertDialogTitle className="text-center text-xl">
+            {modalState.title}
+          </AlertDialogTitle>
+          <AlertDialogDescription className="text-center">
+            {modalState.description}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter className="sm:justify-center">
+          <AlertDialogAction
+            className={`${config.buttonColor} text-white px-8`}
+            disabled={modalState.isLoading}
+          >
+            {modalState.isLoading ? "Procesando..." : "Aceptar"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  </>
+);
 };

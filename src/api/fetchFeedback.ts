@@ -4,7 +4,7 @@ export async function enviarFeedback(
   menu: string,
   comida: string,
   receta: Receta,
-  voto: "like" | "dislike",
+  vote: "like" | "dislike",
   objective: "perder" | "ganar" | "mantener"
 ) {
   const response = await fetch(
@@ -18,7 +18,7 @@ export async function enviarFeedback(
         receta_nombre: receta.nombre, // ✔ obligatorio
         ingredientes: receta.ingredientes, // ✔ obligatorio
         preparacion: receta.preparacion, // ✔ obligatorio
-        voto,
+        vote,
         objetivo: objective, // ✔ obligatorio
       }),
     }

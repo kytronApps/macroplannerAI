@@ -7,9 +7,9 @@ export async function feedbackHandler(request: Request, env: Env): Promise<Respo
 	try {
 		const body = (await request.json()) as FeedbackPayload;
 
-		const { menu, comida, receta_nombre, ingredientes, preparacion, voto, objetivo } = body;
+		const { menu, comida, receta_nombre, ingredientes, preparacion, vote, objetivo } = body;
 
-		if (!menu || !comida || !receta_nombre || !voto) {
+		if (!menu || !comida || !receta_nombre || !vote) {
 			return new Response(JSON.stringify({ error: 'Faltan datos obligatorios' }), { status: 400 });
 		}
 
@@ -19,11 +19,11 @@ export async function feedbackHandler(request: Request, env: Env): Promise<Respo
 		await db
 			.prepare(
 				`
-      INSERT INTO feedback (menu, comida, receta_nombre, ingredientes, preparacion, voto, objetivo, fecha)
+      INSERT INTO feedback (menu, comida, receta_nombre, ingredientes, preparacion, vote, objetivo, fecha)
       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
       `
 			)
-			.bind(menu, comida, receta_nombre, JSON.stringify(ingredientes), JSON.stringify(preparacion), voto, objetivo, fecha)
+			.bind(menu, comida, receta_nombre, JSON.stringify(ingredientes), JSON.stringify(preparacion), vote, objetivo, fecha)
 			.run();
 
 		return new Response(JSON.stringify({ success: true }), {
