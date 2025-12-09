@@ -19,7 +19,6 @@ import {
   Sun,
   Cookie,
   Moon,
-  Cake,
   Sparkles,
   Heart,
   HeartCrack,
@@ -52,60 +51,12 @@ export const MenuDisplay = ({ mealPlan, objective }: MenuDisplayProps) => {
   const getRawMenus = (plan: unknown): unknown => {
     if (!plan || typeof plan !== "object") return [];
     const p = plan as Record<string, unknown>;
-    return (
-      p.menus ??
-      p.menu ??
-      p.plan ??
-      [] // fallback vacío
-    );
+    return p.menus ?? p.menu ?? p.plan ?? [];
   };
 
-  const [feedbackState, setFeedbackState] = useState<
-    Record<string, "like" | "dislike" | null>
-  >({});
-
-  const [regenerating, setRegenerating] = useState<Record<string, boolean>>({});
-  const [menusState, setMenusState] = useState<GeneratedMenu[]>(() =>
-    normalizeMenus(getRawMenus(mealPlan))
-  );
-
-  // Sincroniza el estado interno con el prop cada vez que cambian los menús
-  useEffect(() => {
-    setMenusState(normalizeMenus(getRawMenus(mealPlan)));
-  }, [mealPlan]);
-
-  const [modalState, setModalState] = useState<ModalState>({
-    isOpen: false,
-    type: null,
-    title: "",
-    description: "",
-    isLoading: false,
-  });
-
-  // const menus = Array.isArray(menusState) ? menusState : [];
-
-  // Si la respuesta viene vacía, mostramos aviso pero sin bloquear el render
-  if (!mealPlan) {
-  console.error("MenuDisplay: mealPlan inválido:", mealPlan);
-  return null;
-}
-
-const menus = Array.isArray(menusState) ? menusState : [];
-
-// ⚠️ NO BLOQUEAR el render
-if (menus.length === 0) {
-  console.warn("MenuDisplay: menús vacíos en este momento, renderizando espacio vacío mientras llegan…");
-}
-
-
-  const iconoComida: Record<string, LucideIcon> = {
-    Desayuno: Coffee,
-    Comida: Sun,
-    Merienda: Cookie,
-    Cena: Moon,
-  };
-
-  // Normaliza una receta que pueda venir con pequeñas variaciones
+  // ======================================================
+  // 🔧 FUNCIÓN NORMALIZAR RECETA (MEJORADA)
+  // ======================================================
   function normalizeReceta(r: unknown): Receta | null {
     if (!r || typeof r !== "object") return null;
 
@@ -114,6 +65,7 @@ if (menus.length === 0) {
       (rr.nombre as string) ||
       (rr.Nombre as string) ||
       (rr.titulo as string) ||
+      (rr.name as string) ||
       "";
 
     // preparacion puede venir como 'preparacion' o 'preparación'
@@ -130,12 +82,18 @@ if (menus.length === 0) {
           if (!ing) return { ingrediente: "", cantidad: "" };
           if (typeof ing === "string") {
             const s = ing as string;
-            // intentamos separar cantidad del nombre usando regex simple
-            const m = s.match(/^\s*([0-9]+[^ ]*)\s+(.+)$/);
+            // Patrón mejorado: "150g patata (cocida)" o "10ml (1 cuchara) aceite"
+            const m = s.match(
+              /^\s*([0-9]+(?:\.[0-9]+)?[a-zA-Z]*(?:\s*\([^)]+\))?)\s+(.+)$/
+            );
             if (m) return { ingrediente: m[2].trim(), cantidad: m[1].trim() };
-            const m2 = s.match(/^\s*([0-9]+\s*[a-zA-Z]+)\s+(.+)$/);
+
+            // Patrón alternativo: "2 huevos"
+            const m2 = s.match(/^\s*([0-9]+(?:\.[0-9]+)?)\s+(.+)$/);
             if (m2)
               return { ingrediente: m2[2].trim(), cantidad: m2[1].trim() };
+
+            // Si no coincide con ningún patrón, usar todo como ingrediente
             return { ingrediente: s, cantidad: "" };
           }
           // objeto ya formado
@@ -155,6 +113,9 @@ if (menus.length === 0) {
     } as Receta;
   }
 
+  // ======================================================
+  // 🔧 FUNCIÓN NORMALIZAR COMIDAS (MEJORADA)
+  // ======================================================
   function normalizeComidas(menu: Record<string, unknown>) {
     const rawComidas =
       (menu.comidas as unknown) ??
@@ -165,20 +126,17 @@ if (menus.length === 0) {
 
     if (rawComidas && typeof rawComidas === "object") {
       if (Array.isArray(rawComidas)) {
-        return rawComidas.reduce(
-          (acc, item, idx) => {
-            if (!item || typeof item !== "object") return acc;
-            const itemObj = item as Record<string, unknown>;
-            const nombre =
-              (itemObj.comida as string) ||
-              (itemObj.nombre as string) ||
-              `Comida ${idx + 1}`;
-            const receta = (itemObj.receta as unknown) ?? itemObj;
-            acc[nombre] = receta;
-            return acc;
-          },
-          {} as Record<string, unknown>
-        );
+        return rawComidas.reduce((acc, item, idx) => {
+          if (!item || typeof item !== "object") return acc;
+          const itemObj = item as Record<string, unknown>;
+          const nombre =
+            (itemObj.comida as string) ||
+            (itemObj.nombre as string) ||
+            `Comida ${idx + 1}`;
+          const receta = (itemObj.receta as unknown) ?? itemObj;
+          acc[nombre] = receta;
+          return acc;
+        }, {} as Record<string, unknown>);
       }
       return rawComidas as Record<string, unknown>;
     }
@@ -196,16 +154,49 @@ if (menus.length === 0) {
       "Brunch",
     ];
 
-    return knownKeys.reduce((acc, key) => {
+    const result: Record<string, unknown> = {};
+
+    knownKeys.forEach((key) => {
       const value = (menu as Record<string, unknown>)[key];
       if (value) {
         const normalizedKey = key === "Almuerzo" ? "Comida" : key;
-        acc[normalizedKey] = value;
+        result[normalizedKey] = value;
       }
-      return acc;
-    }, {} as Record<string, unknown>);
+    });
+
+    // Si no encontramos ninguna comida con las claves conocidas,
+    // buscar cualquier propiedad que parezca una receta
+    if (Object.keys(result).length === 0) {
+      Object.entries(menu).forEach(([key, value]) => {
+        // Ignorar campos meta
+        if (
+          key === "nombre" ||
+          key === "titulo" ||
+          key === "postre" ||
+          key === "Postre"
+        ) {
+          return;
+        }
+        if (value && typeof value === "object") {
+          const valueObj = value as Record<string, unknown>;
+          if (
+            valueObj.ingredientes ||
+            valueObj.preparacion ||
+            valueObj["preparación"] ||
+            valueObj.nombre
+          ) {
+            result[key] = value;
+          }
+        }
+      });
+    }
+
+    return result;
   }
 
+  // ======================================================
+  // 🔧 FUNCIÓN NORMALIZAR MENÚS
+  // ======================================================
   function normalizeMenus(rawMenus: unknown): GeneratedMenu[] {
     if (!Array.isArray(rawMenus)) {
       if (rawMenus && typeof rawMenus === "object") {
@@ -240,6 +231,48 @@ if (menus.length === 0) {
       };
     });
   }
+
+  const [feedbackState, setFeedbackState] = useState<
+    Record<string, "like" | "dislike" | null>
+  >({});
+
+  const [regenerating, setRegenerating] = useState<Record<string, boolean>>({});
+  const [menusState, setMenusState] = useState<GeneratedMenu[]>(() =>
+    normalizeMenus(getRawMenus(mealPlan))
+  );
+
+  // Sincroniza el estado interno con el prop cada vez que cambian los menús
+  useEffect(() => {
+    setMenusState(normalizeMenus(getRawMenus(mealPlan)));
+  }, [mealPlan]);
+
+  const [modalState, setModalState] = useState<ModalState>({
+    isOpen: false,
+    type: null,
+    title: "",
+    description: "",
+    isLoading: false,
+  });
+
+  if (!mealPlan) {
+    console.error("MenuDisplay: mealPlan inválido:", mealPlan);
+    return null;
+  }
+
+  const menus = Array.isArray(menusState) ? menusState : [];
+
+  if (menus.length === 0) {
+    console.warn(
+      "MenuDisplay: menús vacíos en este momento, renderizando espacio vacío mientras llegan…"
+    );
+  }
+
+  const iconoComida: Record<string, LucideIcon> = {
+    Desayuno: Coffee,
+    Comida: Sun,
+    Merienda: Cookie,
+    Cena: Moon,
+  };
 
   // ======================================================
   // 🎨 CONFIGURACIÓN DEL MODAL SEGÚN TIPO
@@ -296,7 +329,6 @@ if (menus.length === 0) {
     const key = `${menuNombre}-${comidaNombre}`;
     const isAlreadySelected = feedbackState[key] === tipo;
 
-    // Mostrar modal
     setModalState({
       isOpen: true,
       type: tipo,
@@ -308,13 +340,11 @@ if (menus.length === 0) {
       isLoading: true,
     });
 
-    // Actualizar estado
     setFeedbackState((prev) => ({
       ...prev,
       [key]: isAlreadySelected ? null : tipo,
     }));
 
-    // Enviar feedback
     console.log("[handleFeedback] Enviando datos:", {
       menuNombre,
       comidaNombre,
@@ -324,7 +354,6 @@ if (menus.length === 0) {
     });
     await enviarFeedback(menuNombre, comidaNombre, receta, tipo, objective);
 
-    // Actualizar modal a completado
     setModalState((prev) => ({ ...prev, isLoading: false }));
   };
 
@@ -468,263 +497,264 @@ if (menus.length === 0) {
   // ======================================================
   // 🟢 RENDER
   // ======================================================
-return (
-  <>
-    <div className="max-w-5xl mx-auto p-4 space-y-8">
-      {/* CABECERA */}
-      <div className="text-center space-y-2 mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 flex items-center justify-center gap-2">
-          <Sparkles className="w-8 h-8 text-purple-600" />
-          Tu Plan Nutricional
-        </h1>
-        <p className="text-gray-600">
-          Menús personalizados para alcanzar tus objetivos
-        </p>
+  return (
+    <>
+      <div className="max-w-5xl mx-auto p-4 space-y-8">
+        {/* CABECERA */}
+        <div className="text-center space-y-2 mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 flex items-center justify-center gap-2">
+            <Sparkles className="w-8 h-8 text-purple-600" />
+            Tu Plan Nutricional
+          </h1>
+          <p className="text-gray-600">
+            Menús personalizados para alcanzar tus objetivos
+          </p>
+        </div>
+
+        {menus.map((menu, menuIndex) => {
+          const comidasEntries = Object.entries(menu.comidas || {});
+
+          return (
+            <Card
+              key={menuIndex}
+              className="overflow-hidden border-2 border-gray-100 shadow-lg hover:shadow-xl transition-shadow duration-300"
+            >
+              <div className="bg-gradient-to-r from-purple-600 to-blue-600 p-6 text-white">
+                <h2 className="text-2xl font-bold">{menu.nombre}</h2>
+              </div>
+
+              <div className="p-6 space-y-6">
+                {/* Si no hay comidas */}
+                {comidasEntries.length === 0 && (
+                  <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-yellow-900">
+                    Este menú llegó sin recetas. Pulsa "Regenerar menú completo"
+                    para obtener opciones nuevas.
+                  </div>
+                )}
+
+                {/* LISTA DE COMIDAS */}
+                {comidasEntries.map(
+                  ([nombreComida, receta]: [string, Receta | undefined]) => {
+                    if (!receta) return null;
+                    const recetaSafe = normalizeReceta(receta);
+                    if (!recetaSafe) return null;
+
+                    const IconoComida =
+                      iconoComida[nombreComida] || UtensilsCrossed;
+
+                    const feedbackKey = `${menu.nombre}-${nombreComida}`;
+                    const feedback = feedbackState[feedbackKey];
+
+                    const regenKey = `${menuIndex}-${nombreComida}`;
+                    const isRegenerating = regenerating[regenKey];
+
+                    return (
+                      <Card
+                        key={nombreComida}
+                        className="border border-gray-200 hover:border-purple-300 transition-colors duration-200 overflow-hidden"
+                      >
+                        {/* TÍTULO DE LA COMIDA */}
+                        <div className="bg-gradient-to-r from-gray-50 to-white p-4 border-b">
+                          <div className="flex items-center gap-3">
+                            <div className="bg-purple-100 p-2 rounded-lg">
+                              <IconoComida className="w-6 h-6 text-purple-600" />
+                            </div>
+                            <div>
+                              <h3 className="text-lg font-semibold">
+                                {nombreComida}
+                              </h3>
+                              <p className="text-sm text-gray-600">
+                                {recetaSafe.nombre}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* CONTENIDO */}
+                        <div className="p-5 space-y-4">
+                          {/* Ingredientes */}
+                          <div>
+                            <div className="flex items-center gap-2 text-purple-700 mb-2">
+                              <UtensilsCrossed className="w-5 h-5" />
+                              <span className="font-semibold text-sm uppercase tracking-wide">
+                                Ingredientes
+                              </span>
+                            </div>
+                            <div className="bg-purple-50 rounded-lg p-3">
+                              <ul className="space-y-1.5">
+                                {recetaSafe.ingredientes.map((ing, i) => (
+                                  <li
+                                    key={i}
+                                    className="flex justify-between text-sm"
+                                  >
+                                    <span>{ing.ingrediente}</span>
+                                    <span className="font-semibold text-purple-700">
+                                      {ing.cantidad}
+                                    </span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          </div>
+
+                          {/* Preparación */}
+                          <div>
+                            <div className="flex items-center gap-2 text-blue-700 mb-2">
+                              <ListChecks className="w-5 h-5" />
+                              <span className="font-semibold text-sm uppercase tracking-wide">
+                                Preparación
+                              </span>
+                            </div>
+                            <div className="bg-blue-50 rounded-lg p-3">
+                              <ol className="space-y-2 text-sm">
+                                {recetaSafe.preparacion.map((paso, i) => (
+                                  <li key={i} className="flex gap-3">
+                                    <span className="font-bold text-blue-600">
+                                      {i + 1}.
+                                    </span>
+                                    {paso}
+                                  </li>
+                                ))}
+                              </ol>
+                            </div>
+                          </div>
+
+                          {/* BOTONES */}
+                          <div className="flex flex-wrap gap-2 pt-2">
+                            {/* LIKE */}
+                            <button
+                              className={`flex-1 min-w-[120px] px-4 py-2.5 rounded-lg font-medium text-sm transition-all duration-200 flex items-center justify-center gap-2 ${
+                                feedback === "like"
+                                  ? "bg-green-600 text-white shadow-lg scale-105"
+                                  : "bg-white border-2 border-green-200 text-green-700 hover:bg-green-50 hover:border-green-400"
+                              }`}
+                              onClick={() =>
+                                handleFeedback(
+                                  menu.nombre,
+                                  nombreComida,
+                                  recetaSafe,
+                                  "like"
+                                )
+                              }
+                            >
+                              <ThumbsUp
+                                className={`w-4 h-4 ${
+                                  feedback === "like" ? "fill-current" : ""
+                                }`}
+                              />
+                              Me gustó
+                            </button>
+
+                            {/* DISLIKE */}
+                            <button
+                              className={`flex-1 min-w-[120px] px-4 py-2.5 rounded-lg font-medium text-sm transition-all duration-200 flex items-center justify-center gap-2 ${
+                                feedback === "dislike"
+                                  ? "bg-red-600 text-white shadow-lg scale-105"
+                                  : "bg-white border-2 border-red-200 text-red-700 hover:bg-red-50 hover:border-red-400"
+                              }`}
+                              onClick={() =>
+                                handleFeedback(
+                                  menu.nombre,
+                                  nombreComida,
+                                  recetaSafe,
+                                  "dislike"
+                                )
+                              }
+                            >
+                              <ThumbsDown
+                                className={`w-4 h-4 ${
+                                  feedback === "dislike" ? "fill-current" : ""
+                                }`}
+                              />
+                              No me gustó
+                            </button>
+
+                            {/* REGENERAR COMIDA */}
+                            <button
+                              className="flex-1 min-w-[120px] px-4 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg font-medium text-sm hover:from-blue-700 hover:to-blue-800 transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-lg disabled:opacity-50"
+                              onClick={() =>
+                                handleRegenerar(
+                                  menuIndex,
+                                  nombreComida,
+                                  recetaSafe
+                                )
+                              }
+                              disabled={isRegenerating}
+                            >
+                              <RefreshCw
+                                className={`w-4 h-4 ${
+                                  isRegenerating ? "animate-spin" : ""
+                                }`}
+                              />
+                              {isRegenerating ? "Regenerando..." : "Regenerar"}
+                            </button>
+                          </div>
+                        </div>
+                      </Card>
+                    );
+                  }
+                )}
+
+                {/* REGENERAR MENÚ COMPLETO */}
+                <div className="flex justify-end pt-4">
+                  <button
+                    className="px-6 py-3 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg font-semibold hover:from-purple-700 hover:to-purple-800 transition-all duration-200 flex items-center gap-2 shadow-md hover:shadow-lg disabled:opacity-50"
+                    onClick={() => handleRegenerarMenu(menuIndex)}
+                    disabled={regenerating[`menu-${menuIndex}`]}
+                  >
+                    <RefreshCw
+                      className={`w-5 h-5 ${
+                        regenerating[`menu-${menuIndex}`] ? "animate-spin" : ""
+                      }`}
+                    />
+                    {regenerating[`menu-${menuIndex}`]
+                      ? "Regenerando..."
+                      : "Regenerar menú completo"}
+                  </button>
+                </div>
+              </div>
+            </Card>
+          );
+        })}
       </div>
 
-      
-      {menus.map((menu, menuIndex) => {
-        const comidasEntries = Object.entries(menu.comidas || {});
-
-        return (
-          <Card
-            key={menuIndex}
-            className="overflow-hidden border-2 border-gray-100 shadow-lg hover:shadow-xl transition-shadow duration-300"
-          >
-            <div className="bg-gradient-to-r from-purple-600 to-blue-600 p-6 text-white">
-              <h2 className="text-2xl font-bold">{menu.nombre}</h2>
-            </div>
-
-            <div className="p-6 space-y-6">
-              {/* Si no hay comidas */}
-              {comidasEntries.length === 0 && (
-                <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-yellow-900">
-                  Este menú llegó sin recetas. Pulsa "Regenerar menú completo"
-                  para obtener opciones nuevas.
-                </div>
+      {/* MODAL */}
+      <AlertDialog
+        open={modalState.isOpen}
+        onOpenChange={(open) =>
+          setModalState((prev) => ({ ...prev, isOpen: open }))
+        }
+      >
+        <AlertDialogContent className="sm:max-w-md">
+          <AlertDialogHeader>
+            <div
+              className={`mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full ${config.bgColor}`}
+            >
+              {modalState.isLoading ? (
+                <Loader2
+                  className={`h-8 w-8 animate-spin ${config.iconColor}`}
+                />
+              ) : (
+                <ModalIcon className={`h-8 w-8 ${config.iconColor}`} />
               )}
-
-              {/* LISTA DE COMIDAS */}
-              {comidasEntries.map(
-                ([nombreComida, receta]: [string, Receta | undefined]) => {
-                  if (!receta) return null;
-                  const recetaSafe = normalizeReceta(receta);
-                  if (!recetaSafe) return null;
-
-                  const IconoComida =
-                    iconoComida[nombreComida] || UtensilsCrossed;
-
-                  const feedbackKey = `${menu.nombre}-${nombreComida}`;
-                  const feedback = feedbackState[feedbackKey];
-
-                  const regenKey = `${menuIndex}-${nombreComida}`;
-                  const isRegenerating = regenerating[regenKey];
-
-                  return (
-                    <Card
-                      key={nombreComida}
-                      className="border border-gray-200 hover:border-purple-300 transition-colors duration-200 overflow-hidden"
-                    >
-                      {/* TÍTULO DE LA COMIDA */}
-                      <div className="bg-gradient-to-r from-gray-50 to-white p-4 border-b">
-                        <div className="flex items-center gap-3">
-                          <div className="bg-purple-100 p-2 rounded-lg">
-                            <IconoComida className="w-6 h-6 text-purple-600" />
-                          </div>
-                          <div>
-                            <h3 className="text-lg font-semibold">
-                              {nombreComida}
-                            </h3>
-                            <p className="text-sm text-gray-600">
-                              {recetaSafe.nombre}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* CONTENIDO */}
-                      <div className="p-5 space-y-4">
-                        {/* Ingredientes */}
-                        <div>
-                          <div className="flex items-center gap-2 text-purple-700">
-                            <UtensilsCrossed className="w-5 h-5" />
-                            <span className="font-semibold text-sm uppercase tracking-wide">
-                              Ingredientes
-                            </span>
-                          </div>
-                          <div className="bg-purple-50 rounded-lg p-3">
-                            <ul className="space-y-1.5">
-                              {recetaSafe.ingredientes.map((ing, i) => (
-                                <li
-                                  key={i}
-                                  className="flex justify-between text-sm"
-                                >
-                                  <span>{ing.ingrediente}</span>
-                                  <span className="font-semibold text-purple-700">
-                                    {ing.cantidad}
-                                  </span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        </div>
-
-                        {/* Preparación */}
-                        <div>
-                          <div className="flex items-center gap-2 text-blue-700">
-                            <ListChecks className="w-5 h-5" />
-                            <span className="font-semibold text-sm uppercase tracking-wide">
-                              Preparación
-                            </span>
-                          </div>
-                          <div className="bg-blue-50 rounded-lg p-3">
-                            <ol className="space-y-2 text-sm">
-                              {recetaSafe.preparacion.map((paso, i) => (
-                                <li key={i} className="flex gap-3">
-                                  <span className="font-bold text-blue-600">
-                                    {i + 1}.
-                                  </span>
-                                  {paso}
-                                </li>
-                              ))}
-                            </ol>
-                          </div>
-                        </div>
-
-                        {/* BOTONES */}
-                        <div className="flex flex-wrap gap-2 pt-2">
-                          {/* LIKE */}
-                          <button
-                            className={`flex-1 min-w-[120px] px-4 py-2.5 rounded-lg font-medium text-sm transition-all duration-200 flex items-center justify-center gap-2 ${
-                              feedback === "like"
-                                ? "bg-green-600 text-white shadow-lg scale-105"
-                                : "bg-white border-2 border-green-200 text-green-700 hover:bg-green-50 hover:border-green-400"
-                            }`}
-                            onClick={() =>
-                              handleFeedback(
-                                menu.nombre,
-                                nombreComida,
-                                recetaSafe,
-                                "like"
-                              )
-                            }
-                          >
-                            <ThumbsUp
-                              className={`w-4 h-4 ${
-                                feedback === "like" ? "fill-current" : ""
-                              }`}
-                            />
-                            Me gustó
-                          </button>
-
-                          {/* DISLIKE */}
-                          <button
-                            className={`flex-1 min-w-[120px] px-4 py-2.5 rounded-lg font-medium text-sm transition-all duration-200 flex items-center justify-center gap-2 ${
-                              feedback === "dislike"
-                                ? "bg-red-600 text-white shadow-lg scale-105"
-                                : "bg-white border-2 border-red-200 text-red-700 hover:bg-red-50 hover:border-red-400"
-                            }`}
-                            onClick={() =>
-                              handleFeedback(
-                                menu.nombre,
-                                nombreComida,
-                                recetaSafe,
-                                "dislike"
-                              )
-                            }
-                          >
-                            <ThumbsDown
-                              className={`w-4 h-4 ${
-                                feedback === "dislike" ? "fill-current" : ""
-                              }`}
-                            />
-                            No me gustó
-                          </button>
-
-                          {/* REGENERAR COMIDA */}
-                          <button
-                            className="flex-1 min-w-[120px] px-4 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg font-medium text-sm hover:from-blue-700 hover:to-blue-800 transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-lg disabled:opacity-50"
-                            onClick={() =>
-                              handleRegenerar(
-                                menuIndex,
-                                nombreComida,
-                                recetaSafe
-                              )
-                            }
-                            disabled={isRegenerating}
-                          >
-                            <RefreshCw
-                              className={`w-4 h-4 ${
-                                isRegenerating ? "animate-spin" : ""
-                              }`}
-                            />
-                            {isRegenerating ? "Regenerando..." : "Regenerar"}
-                          </button>
-                        </div>
-                      </div>
-                    </Card>
-                  );
-                }
-              )}
-
-              {/* REGENERAR MENÚ COMPLETO */}
-              <div className="flex justify-end pt-4">
-                <button
-                  className="px-6 py-3 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg font-semibold hover:from-purple-700 hover:to-purple-800 transition-all duration-200 flex items-center gap-2 shadow-md hover:shadow-lg disabled:opacity-50"
-                  onClick={() => handleRegenerarMenu(menuIndex)}
-                  disabled={regenerating[`menu-${menuIndex}`]}
-                >
-                  <RefreshCw
-                    className={`w-5 h-5 ${
-                      regenerating[`menu-${menuIndex}`] ? "animate-spin" : ""
-                    }`}
-                  />
-                  {regenerating[`menu-${menuIndex}`]
-                    ? "Regenerando..."
-                    : "Regenerar menú completo"}
-                </button>
-              </div>
             </div>
-          </Card>
-        );
-      })}
-    </div>
-
-    {/* MODAL */}
-    <AlertDialog
-      open={modalState.isOpen}
-      onOpenChange={(open) =>
-        setModalState((prev) => ({ ...prev, isOpen: open }))
-      }
-    >
-      <AlertDialogContent className="sm:max-w-md">
-        <AlertDialogHeader>
-          <div
-            className={`mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full ${config.bgColor}`}
-          >
-            {modalState.isLoading ? (
-              <Loader2 className={`h-8 w-8 animate-spin ${config.iconColor}`} />
-            ) : (
-              <ModalIcon className={`h-8 w-8 ${config.iconColor}`} />
-            )}
-          </div>
-          <AlertDialogTitle className="text-center text-xl">
-            {modalState.title}
-          </AlertDialogTitle>
-          <AlertDialogDescription className="text-center">
-            {modalState.description}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter className="sm:justify-center">
-          <AlertDialogAction
-            className={`${config.buttonColor} text-white px-8`}
-            disabled={modalState.isLoading}
-          >
-            {modalState.isLoading ? "Procesando..." : "Aceptar"}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  </>
-);
+            <AlertDialogTitle className="text-center text-xl">
+              {modalState.title}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-center">
+              {modalState.description}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="sm:justify-center">
+            <AlertDialogAction
+              className={`${config.buttonColor} text-white px-8`}
+              disabled={modalState.isLoading}
+            >
+              {modalState.isLoading ? "Procesando..." : "Aceptar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
 };
