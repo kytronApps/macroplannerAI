@@ -11,33 +11,38 @@ import { normalizarObjetivo } from './utils/objective';
 import type { Objective } from './type/objective.type';
 import { regenerarComidaHandler } from './handlers/regenerarComida';
 import { regenerarMenuHandler } from './handlers/regenerarMenu';
+import { getFeedbackContext } from './utils/getFeedbackContext'; // ⬅️ IMPORTAR
 
 export default {
 	async fetch(request: Request, env: Env): Promise<Response> {
 		const url = new URL(request.url);
+		const origin = request.headers.get('Origin') || undefined;
 
-		// 🟪 ROUTES DEL WORKER — deben cortar ejecución
+		// 🟦 CORS PREFLIGHT
+		if (request.method === 'OPTIONS') {
+			const headers = getCorsHeaders(origin);
+			return new Response(null, {
+				status: 204,
+				headers,
+			});
+		}
+
+		// 🟪 ROUTES DEL WORKER
 		if (url.pathname === '/feedback' && request.method === 'POST') {
-			return await feedbackHandler(request, env); // ⬅️ RETURN obligatorio
+			return await feedbackHandler(request, env);
 		}
 
 		if (url.pathname === '/regenerar/comida' && request.method === 'POST') {
-			return await regenerarComidaHandler(request, env); // ⬅️ RETURN obligatorio
+			return await regenerarComidaHandler(request, env);
 		}
 
 		if (url.pathname === '/regenerar/menu' && request.method === 'POST') {
-			return await regenerarMenuHandler(request, env); // ⬅️ RETURN obligatorio
+			return await regenerarMenuHandler(request, env);
 		}
 
-		// 🟦 CORS
-		if (request.method === 'OPTIONS') {
-			const headers = getCorsHeaders(request.headers.get('Origin') || undefined);
-			return new Response(null, { status: 204, headers });
-		}
-
-		// 🟥 SOLO POST permitido
+		// 🟥 SOLO POST permitido para ruta principal
 		if (request.method !== 'POST') {
-			const headers = getCorsHeaders(request.headers.get('Origin') || undefined);
+			const headers = getCorsHeaders(origin);
 			return new Response('Method Not Allowed', {
 				status: 405,
 				headers,
@@ -50,12 +55,23 @@ export default {
 
 			const objetivoSeguro: Objective = normalizarObjetivo(body.objective);
 			const alimentos = seleccionarListado(objetivoSeguro);
+			
+			// ⬅️ OBTENER CONTEXTO DE FEEDBACK
+			const feedbackContext = await getFeedbackContext(
+				env,
+				objetivoSeguro,
+				body.meals
+			);
 
 			const prompt = generarMenuPrompt({
 				menuCount: body.menuCount,
 				objective: objetivoSeguro,
 				alimentos,
 				meals: body.meals,
+				allergies: body.allergies,
+				preferences: body.preferences,
+				intolerances: body.intolerances,
+				feedbackContext, // ⬅️ PASAR CONTEXTO
 			});
 
 			const groq = new Groq({ apiKey: env.GROQ_API_KEY });
@@ -73,7 +89,7 @@ export default {
 
 			const headers = {
 				'Content-Type': 'application/json',
-				...getCorsHeaders(request.headers.get('Origin') || undefined),
+				...getCorsHeaders(origin),
 			};
 
 			return new Response(JSON.stringify(json), {
@@ -85,7 +101,7 @@ export default {
 
 			const headers = {
 				'Content-Type': 'application/json',
-				...getCorsHeaders(request.headers.get('Origin') || undefined),
+				...getCorsHeaders(origin),
 			};
 
 			return new Response(JSON.stringify({ menus: [], error: String(err) }), {
