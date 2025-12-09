@@ -109,6 +109,7 @@ const Index = () => {
       }
 
       const data = await response.json();
+      console.log("[Index] raw worker response:", data);
 
       // Normalizar respuesta: el worker debería devolver { menus: [...] }
       // pero en algunos casos la LLM puede devolver directamente un array u

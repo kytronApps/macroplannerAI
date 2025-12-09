@@ -43,6 +43,7 @@ type ModalState = {
 };
 
 export const MenuDisplay = ({ mealPlan, objective }: MenuDisplayProps) => {
+  console.log("[MenuDisplay] mealPlan prop:", mealPlan);
   const [feedbackState, setFeedbackState] = useState<
     Record<string, "like" | "dislike" | null>
   >({});
