@@ -4,7 +4,8 @@ import type { Objective } from "@/types/objective.type";
 export async function regenerarComida(
   objective: Objective,
   comida: string,
-  receta_actual: Receta
+  receta_actual: Receta,
+  meals: string[]
 ) {
   const response = await fetch(
     "https://nutriplan-worker.kytronapps.workers.dev/regenerar/comida",
@@ -14,7 +15,8 @@ export async function regenerarComida(
       body: JSON.stringify({
         comida,
         receta_actual,
-        objective
+        objective,
+        meals
       })
     }
   );
