@@ -109,7 +109,22 @@ const Index = () => {
       }
 
       const data = await response.json();
-      setMealPlan(data);
+
+      // Normalizar respuesta: el worker debería devolver { menus: [...] }
+      // pero en algunos casos la LLM puede devolver directamente un array u
+      // otro objeto; normalizamos para evitar `undefined` en `MenuDisplay`.
+      let normalized: any = data;
+      if (Array.isArray(data)) {
+        normalized = { menus: data };
+      } else if (!data || typeof data !== "object") {
+        normalized = { menus: [] };
+      } else if (!Array.isArray(data.menus)) {
+        // Si viene un objeto con otra forma, intentamos encontrar un campo razonable
+        // o fallback a empty array
+        normalized = { menus: data.menus ?? [] };
+      }
+
+      setMealPlan(normalized);
 
       toast({
         title: "¡Plan generado!",
@@ -314,7 +329,6 @@ const Index = () => {
               {/* Contenido a capturar por html2canvas */}
               <div id="meal-plan-content">
                 <MenuDisplay mealPlan={mealPlan} objective={objective} />
-
               </div>
             </div>
           )}
