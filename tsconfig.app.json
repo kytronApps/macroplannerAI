@@ -26,5 +26,5 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src"]
+  "include": ["src", "nutriplan-worker/src/handlers/regenerarComida.ts", "nutriplan-worker/src/handlers/regenerarMenu.ts", "nutriplan-worker/src/type/regenerar-comida.types.ts", "nutriplan-worker/src/type/regenerar-menu.type.ts"]
 }

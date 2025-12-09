@@ -9,6 +9,8 @@ import { generarMenuPrompt } from './prompts/generarMenuPrompt';
 import { feedbackHandler } from './handlers/feedbackHandler';
 import { normalizarObjetivo } from './utils/objective';
 import type { Objective } from './type/objective.type';
+import { regenerarComidaHandler } from './handlers/regenerarComida';
+import { regenerarMenuHandler } from './handlers/regenerarMenu';
 
 export default {
 	async fetch(request: Request, env: Env): Promise<Response> {
@@ -24,6 +26,13 @@ export default {
 
 		if (request.method !== 'POST') {
 			return new Response('Method Not Allowed', { status: 405, headers: corsHeaders });
+		}
+		if (url.pathname === '/regenerar/comida' && request.method === 'POST') {
+			return regenerarComidaHandler(request, env);
+		}
+
+		if (url.pathname === '/regenerar/menu' && request.method === 'POST') {
+			return regenerarMenuHandler(request, env);
 		}
 
 		try {
