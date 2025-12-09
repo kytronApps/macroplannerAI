@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import {
   AlertDialog,
@@ -51,6 +51,11 @@ export const MenuDisplay = ({ mealPlan, objective }: MenuDisplayProps) => {
   const [regenerating, setRegenerating] = useState<Record<string, boolean>>({});
   const [menusState, setMenusState] = useState(mealPlan?.menus ?? []);
 
+  // Sincroniza el estado interno con el prop cada vez que cambian los menús
+  useEffect(() => {
+    setMenusState(mealPlan?.menus ?? []);
+  }, [mealPlan?.menus]);
+
   const [modalState, setModalState] = useState<ModalState>({
     isOpen: false,
     type: null,
@@ -84,6 +89,56 @@ export const MenuDisplay = ({ mealPlan, objective }: MenuDisplayProps) => {
     Comida: Sun,
     Merienda: Cookie,
     Cena: Moon,
+  };
+
+  // Normaliza una receta que pueda venir con pequeñas variaciones
+  const normalizeReceta = (r: unknown) => {
+    if (!r || typeof r !== "object") return null;
+
+    const rr = r as Record<string, unknown>;
+    const nombre: string =
+      (rr.nombre as string) ||
+      (rr.Nombre as string) ||
+      (rr.titulo as string) ||
+      "";
+
+    // preparacion puede venir como 'preparacion' o 'preparación'
+    const preparacionRaw: unknown =
+      rr.preparacion ?? rr["preparación"] ?? rr.preparación ?? [];
+    const preparacion: string[] = Array.isArray(preparacionRaw)
+      ? (preparacionRaw as unknown[]).map((p) => String(p))
+      : [];
+
+    // ingredientes puede venir como array de objetos o de strings
+    const ingredientesRaw: unknown = rr.ingredientes ?? rr.Ingredientes ?? [];
+    const ingredientes = Array.isArray(ingredientesRaw)
+      ? (ingredientesRaw as unknown[]).map((ing) => {
+          if (!ing) return { ingrediente: "", cantidad: "" };
+          if (typeof ing === "string") {
+            const s = ing as string;
+            // intentamos separar cantidad del nombre usando regex simple
+            const m = s.match(/^\s*([0-9]+[^ ]*)\s+(.+)$/);
+            if (m) return { ingrediente: m[2].trim(), cantidad: m[1].trim() };
+            const m2 = s.match(/^\s*([0-9]+\s*[a-zA-Z]+)\s+(.+)$/);
+            if (m2)
+              return { ingrediente: m2[2].trim(), cantidad: m2[1].trim() };
+            return { ingrediente: s, cantidad: "" };
+          }
+          // objeto ya formado
+          const io = ing as Record<string, unknown>;
+          return {
+            ingrediente:
+              (io.ingrediente as string) ?? (io.name as string) ?? "",
+            cantidad: (io.cantidad as string) ?? (io.qty as string) ?? "",
+          };
+        })
+      : [];
+
+    return {
+      nombre,
+      ingredientes,
+      preparacion,
+    } as Receta;
   };
 
   // ======================================================
@@ -313,6 +368,8 @@ export const MenuDisplay = ({ mealPlan, objective }: MenuDisplayProps) => {
               {Object.entries(menu.comidas || {}).map(
                 ([nombreComida, receta]: [string, Receta | undefined]) => {
                   if (!receta) return null;
+                  const recetaSafe = normalizeReceta(receta);
+                  if (!recetaSafe) return null;
                   const IconoComida =
                     iconoComida[nombreComida] || UtensilsCrossed;
                   const feedbackKey = `${menu.nombre}-${nombreComida}`;
@@ -335,7 +392,7 @@ export const MenuDisplay = ({ mealPlan, objective }: MenuDisplayProps) => {
                               {nombreComida}
                             </h3>
                             <p className="text-sm text-gray-600">
-                              {receta.nombre}
+                              {recetaSafe.nombre}
                             </p>
                           </div>
                         </div>
@@ -351,7 +408,7 @@ export const MenuDisplay = ({ mealPlan, objective }: MenuDisplayProps) => {
                           </div>
                           <div className="bg-purple-50 rounded-lg p-3">
                             <ul className="space-y-1.5">
-                              {receta.ingredientes.map((ing, i) => (
+                              {recetaSafe.ingredientes.map((ing, i) => (
                                 <li
                                   key={i}
                                   className="flex justify-between text-sm"
@@ -375,7 +432,7 @@ export const MenuDisplay = ({ mealPlan, objective }: MenuDisplayProps) => {
                           </div>
                           <div className="bg-blue-50 rounded-lg p-3">
                             <ol className="space-y-2 text-sm">
-                              {receta.preparacion.map((paso, i) => (
+                              {recetaSafe.preparacion.map((paso, i) => (
                                 <li key={i} className="flex gap-3">
                                   <span className="font-bold text-blue-600">
                                     {i + 1}.
