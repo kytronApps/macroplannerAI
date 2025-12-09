@@ -309,8 +309,9 @@ export const MenuDisplay = ({ mealPlan, objective }: MenuDisplayProps) => {
             </div>
 
             <div className="p-6 space-y-6">
-              {Object.entries(menu.comidas).map(
-                ([nombreComida, receta]: [string, Receta]) => {
+              {Object.entries(menu.comidas || {}).map(
+                ([nombreComida, receta]: [string, Receta | undefined]) => {
+                  if (!receta) return null;
                   const IconoComida =
                     iconoComida[nombreComida] || UtensilsCrossed;
                   const feedbackKey = `${menu.nombre}-${nombreComida}`;
