@@ -1,7 +1,7 @@
 import { enviarFeedback } from "@/api/fetchFeedback";
 import { regenerarMenu } from "@/utils/regenerarMenu";
 import { regenerarComida } from "@/utils/regenerarComida";
-import type { Receta,MenuDisplayProps } from "@/types/menu-display.type";
+import type { Receta, MenuDisplayProps } from "@/types/menu-display.type";
 import { Card } from "@/components/ui/card";
 import {
   ChefHat,
@@ -9,7 +9,7 @@ import {
   ListChecks,
   ThumbsUp,
   ThumbsDown,
-  RefreshCw
+  RefreshCw,
 } from "lucide-react";
 
 export const MenuDisplay = ({ mealPlan, objective }: MenuDisplayProps) => {
@@ -27,16 +27,29 @@ export const MenuDisplay = ({ mealPlan, objective }: MenuDisplayProps) => {
     <div className="space-y-6">
       {menus.map((menu, menuIndex) => (
         <Card key={menuIndex}>
-          
-          {Object.entries(menu.comidas).map(
-            ([nombreComida, receta]: [string, Receta]) => (
+          {Object.entries(menu.comidas).map(([nombreComida, receta]) => {
+            const recetaSegura: Receta = {
+              nombre: receta?.nombre ?? "Receta generada",
+              ingredientes: Array.isArray(receta?.ingredientes)
+                ? receta.ingredientes
+                : [],
+              preparacion: Array.isArray(receta?.preparacion)
+                ? receta.preparacion
+                : [],
+            };
+
+            return (
               <div key={nombreComida}>
-                
+                {/* Aquí ya puedes usar recetaSegura */}
+                <p className="text-lg font-semibold text-gray-800 mb-3">
+                  {recetaSegura.nombre}
+                </p>
+
                 {/* Botones */}
                 <div className="flex gap-4 mt-4">
                   <button
                     onClick={() =>
-                      handleLike(menu.nombre, nombreComida, receta)
+                      handleLike(menu.nombre, nombreComida, recetaSegura)
                     }
                   >
                     👍 Me gustó
@@ -44,7 +57,7 @@ export const MenuDisplay = ({ mealPlan, objective }: MenuDisplayProps) => {
 
                   <button
                     onClick={() =>
-                      handleDislike(menu.nombre, nombreComida, receta)
+                      handleDislike(menu.nombre, nombreComida, recetaSegura)
                     }
                   >
                     👎 No me gustó
@@ -52,25 +65,23 @@ export const MenuDisplay = ({ mealPlan, objective }: MenuDisplayProps) => {
 
                   <button
                     onClick={() =>
-                      regenerarComida(menu.nombre, nombreComida, receta)
+                      regenerarComida(objective, nombreComida, recetaSegura)
                     }
                   >
                     🔄 Regenerar
                   </button>
                 </div>
-
               </div>
-            )
-          )}
+            );
+          })}
 
           {/* Botón regenerar menú completo */}
           <button
             className="mt-4"
-            onClick={() => regenerarMenu(menu.nombre)}
+            onClick={() => regenerarMenu(objective, Object.keys(menu.comidas))}
           >
             🔄 Regenerar menú completo
           </button>
-
         </Card>
       ))}
     </div>
