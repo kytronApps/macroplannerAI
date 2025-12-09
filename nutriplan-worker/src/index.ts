@@ -13,69 +13,79 @@ import { regenerarComidaHandler } from './handlers/regenerarComida';
 import { regenerarMenuHandler } from './handlers/regenerarMenu';
 
 export default {
-	async fetch(request: Request, env: Env): Promise<Response> {
-		const url = new URL(request.url);
+  async fetch(request: Request, env: Env): Promise<Response> {
+    const url = new URL(request.url);
 
-		if (url.pathname === '/feedback' && request.method === 'POST') {
-			return feedbackHandler(request, env);
-		}
+    // 🟪 ROUTES DEL WORKER — deben cortar ejecución
+    if (url.pathname === "/feedback" && request.method === "POST") {
+      return await feedbackHandler(request, env);  // ⬅️ RETURN obligatorio
+    }
 
-		if (request.method === 'OPTIONS') {
-			return new Response(null, { status: 204, headers: corsHeaders });
-		}
+    if (url.pathname === "/regenerar/comida" && request.method === "POST") {
+      return await regenerarComidaHandler(request, env); // ⬅️ RETURN obligatorio
+    }
 
-		if (request.method !== 'POST') {
-			return new Response('Method Not Allowed', { status: 405, headers: corsHeaders });
-		}
-		if (url.pathname === '/regenerar/comida' && request.method === 'POST') {
-			return regenerarComidaHandler(request, env);
-		}
+    if (url.pathname === "/regenerar/menu" && request.method === "POST") {
+      return await regenerarMenuHandler(request, env); // ⬅️ RETURN obligatorio
+    }
 
-		if (url.pathname === '/regenerar/menu' && request.method === 'POST') {
-			return regenerarMenuHandler(request, env);
-		}
+    // 🟦 CORS
+    if (request.method === "OPTIONS") {
+      return new Response(null, { status: 204, headers: corsHeaders });
+    }
 
-		try {
-			const body = (await request.json()) as MealRequest;
+    // 🟥 SOLO POST permitido
+    if (request.method !== "POST") {
+      return new Response("Method Not Allowed", {
+        status: 405,
+        headers: corsHeaders,
+      });
+    }
 
-			const groq = new Groq({ apiKey: env.GROQ_API_KEY });
-			const objetivoSeguro: Objective = normalizarObjetivo(body.objective);
-			const alimentos = seleccionarListado(objetivoSeguro);
+    // 🟧 GENERACIÓN DE MENÚ NORMAL
+    try {
+      const body = (await request.json()) as MealRequest;
 
-			const prompt = generarMenuPrompt({
-				menuCount: body.menuCount,
-				objective: objetivoSeguro,
-				alimentos,
-				meals: body.meals,
-			});
+      const objetivoSeguro: Objective = normalizarObjetivo(body.objective);
+      const alimentos = seleccionarListado(objetivoSeguro);
 
-			const completion = await groq.chat.completions.create({
-				model: 'llama-3.1-8b-instant',
-				messages: [{ role: 'user', content: prompt }],
-				temperature: 0.7,
-			});
+      const prompt = generarMenuPrompt({
+        menuCount: body.menuCount,
+        objective: objetivoSeguro,
+        alimentos,
+        meals: body.meals,
+      });
 
-			const raw = completion.choices?.[0]?.message?.content || '{}';
-			const cleaned = limpiarRespuesta(raw);
+      const groq = new Groq({ apiKey: env.GROQ_API_KEY });
 
-			const json = JSON.parse(cleaned);
+      const completion = await groq.chat.completions.create({
+        model: "llama-3.1-8b-instant",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.7,
+      });
 
-			return new Response(JSON.stringify(json), {
-				status: 200,
-				headers: {
-					'Content-Type': 'application/json',
-					...corsHeaders,
-				},
-			});
-		} catch (err) {
-			console.error('💥 ERROR GENERAL:', err);
-			return new Response(JSON.stringify({ menus: [], error: String(err) }), {
-				status: 500,
-				headers: {
-					'Content-Type': 'application/json',
-					...corsHeaders,
-				},
-			});
-		}
-	},
+      const raw = completion.choices?.[0]?.message?.content ?? "{}";
+      const cleaned = limpiarRespuesta(raw);
+
+      const json = JSON.parse(cleaned);
+
+      return new Response(JSON.stringify(json), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+          ...corsHeaders,
+        },
+      });
+    } catch (err) {
+      console.error("💥 ERROR GENERAL:", err);
+
+      return new Response(JSON.stringify({ menus: [], error: String(err) }), {
+        status: 500,
+        headers: {
+          "Content-Type": "application/json",
+          ...corsHeaders,
+        },
+      });
+    }
+  },
 };
